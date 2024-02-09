@@ -41,7 +41,7 @@ internal class ClassPageGenerator(
 
         h1 {
           id = "declaration-title"
-          +clazz.simpleName
+          +clazz.simpleName.asIdentifier
 
           span {
             id = "declaration-version"
@@ -98,7 +98,7 @@ internal class ClassPageGenerator(
             span {
               classes = setOf("name-decl")
 
-              +clazz.simpleName
+              +clazz.simpleName.asIdentifier
             }
 
             renderTypeParameters(clazz.typeParameters)
@@ -116,7 +116,7 @@ internal class ClassPageGenerator(
   }
 
   // example output:
-  // class HostAlias (io.k8s/api/core/v1/PodSpec:befa7c51) • Pkl Hub
+  // HostAlias (pkg.pkl-lang.org/pkl-k8s/k8s@1.0.0) • Package Docs
   override fun HTMLTag.renderPageTitle() {
     val classScope = pageScope
     val moduleScope = classScope.parent!!

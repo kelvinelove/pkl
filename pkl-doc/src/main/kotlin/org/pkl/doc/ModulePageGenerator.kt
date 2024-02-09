@@ -47,7 +47,7 @@ internal class ModulePageGenerator(
         h1 {
           id = "declaration-title"
 
-          +docModule.name
+          +docModule.name.asModuleName
 
           span {
             id = "declaration-version"
@@ -87,7 +87,7 @@ internal class ModulePageGenerator(
             span {
               classes = setOf("name-decl")
 
-              +docModule.name
+              +docModule.name.asModuleName
             }
 
             renderModuleAmendsOrExtendsClause(module)
@@ -105,7 +105,7 @@ internal class ModulePageGenerator(
   }
 
   // example output:
-  // module PodSpec (io.k8s/api/core/v1:befa7c51) • Pkl Hub
+  // module PodSpec (pkg.pkl-lang.org/pkl-k8s/k8s:1.0.0) • Package Docs
   override fun HTMLTag.renderPageTitle() {
     val moduleScope = pageScope
     val packageScope = moduleScope.parent!!

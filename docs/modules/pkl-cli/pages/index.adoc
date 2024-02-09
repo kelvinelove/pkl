@@ -342,7 +342,7 @@ The following command prints `Pigeon` to the console:
 
 [source,shell]
 ----
-pkl -x metadata.name pigeon.pkl
+pkl eval -x metadata.species pigeon.pkl
 # => Pigeon
 ----
 
@@ -356,7 +356,7 @@ metadata {
 }
 
 output {
-  text = metadata.name.toString()
+  text = metadata.species.toString()
 }
 ----
 ====
@@ -650,11 +650,11 @@ To load <<config.pkl,`config.pkl`>> into the REPL, run:
 pkl> :load config.pkl
 ----
 
-To evaluate the `bird.name` property, run:
+To evaluate the `bird.species` property, run:
 
 [source,shell]
 ----
-pkl> bird.name
+pkl> bird.species
 "Pigeon"
 ----
 
@@ -716,7 +716,7 @@ pkl> hello
 pkl> function double(n) = 2 * n
 pkl> double(5)
 10
-pkl> class Bird { name: String }
+pkl> class Bird { species: String }
 pkl> new Bird { species = "Pigeon" }
 {
   name = ?
@@ -738,9 +738,9 @@ pkl> species
 pkl> species = "Barn"
 pkl> species
 "Barn"
-pkl> species += " Owl"
+pkl> species + " Owl"
 pkl> species
-"Barn owl"
+"Barn Owl"
 ----
 
 Due to Pkl's late binding semantics, redefining a member affects dependent members:
@@ -748,9 +748,9 @@ Due to Pkl's late binding semantics, redefining a member affects dependent membe
 [source,shell]
 ----
 pkl> name = "Barn"
-pkl> species = "$name Owl"
+pkl> species = "\(name) Owl"
 pkl> species
-"Barn owl"
+"Barn Owl"
 pkl> name = "Elf"
 pkl> species
 "Elf Owl"
