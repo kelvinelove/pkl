@@ -33,13 +33,13 @@ parrot = (bird) {
 ----
 
 Parrot and Pigeon have nearly identical properties.
-They only differ in their name and taxonomy, so if you have already written out `bird`, you can say that `parrot` is just like `pigeon` except `name` is `"Parrot"`, diet is `"Berries"` the `taxonomy.order` is `"Psittaciformes"`.
+They only differ in their name and taxonomy, so if you have already written out `bird`, you can say that `parrot` is just like `bird` except `name` is `"Parrot"`, diet is `"Berries"` the `taxonomy.order` is `"Psittaciformes"`.
 When you run this, Pkl expands everything fully.
 
 [source,{pkl}]
 ----
 bird {
-  name = "Common wood pigeon"
+  name = "Pigeon"
   diet = "Seeds"
   taxonomy {
     kingdom = "Animalia"
@@ -58,9 +58,12 @@ parrot {
 }
 ----
 
-[IMPORTANT]
+[NOTE]
 ====
-_Amending_ does not allow us to _add_ properties to the (typed) object we are amending.
+So far, you have only worked with link:{uri-stdlib-Dynamic}[Dynamic] objects.
+Pkl also offers link:{uri-stdlib-Typed}[Typed] objects.
+_Amending_ allows you to override, amend, and add new properties to a dynamic object.
+Typed objects will only let you amend or override existing properties, not add entirely new ones.
 The xref:03_writing_a_template.adoc[next part of the tutorial] discusses types in more detail.
 There, you see that amending _never changes the type_ of the object.
 ====
@@ -206,6 +209,8 @@ Going back to the example above, you can write `parrot` as a separate module.
 name = "Common wood pigeon"
 diet = "Seeds"
 taxonomy {
+  kingdom = "Animalia"
+  clade = "Dinosauria"
   species = "Columba palumbus"
 }
 ----
@@ -225,7 +230,7 @@ parrot = (pigeon) {
   }
 }
 ----
-<1> Importing `foo.pkl` creates the object `foo`, so you can refer to `pigeon` in this code, like you did before.
+<1> Importing `pigeon.pkl` creates the object `pigeon`, so you can refer to `pigeon` in this code, like you did before.
 
 If you run Pkl on both, you will see that it works.
 Looking at the result, however, you see a (possibly) unexpected difference.
@@ -236,6 +241,8 @@ $ pkl eval /Users/me/tutorial/pigeon.pkl
 name = "Common wood pigeon"
 diet = "Seeds"
 taxonomy {
+  kingdom = "Animalia"
+  clade = "Dinosauria"
   species = "Columba palumbus"
 }
 
@@ -244,6 +251,8 @@ parrot {
   name = "Great green macaw"
   diet = "Berries"
   taxonomy {
+    kingdom = "Animalia"
+    clade = "Dinosauria"
     species = "Ara ambiguus"
   }
 }
@@ -372,7 +381,7 @@ pipelines {
 <1> There is no pipeline object to amend. The `new` keyword gives you an object to amend.
 
 So far, you've defined objects the same way you amended them.
-When the name `foo` didn't occur before, `foo { ... }` _creates_ a property called `foo` and assigns to it the object specified on the `...`.
+If the name `foo` didn't occur before, `foo { ... }` _creates_ a property called `foo` and assigns to it the contents in place of the `...` (given that `...` is not valid Pkl, but an abbreviation for illustration purposes).
 If `foo` is an existing object, this notation is an _amend expression_; resulting in a new _object_ (value), but _not_ a new (named) property.
 Since `pipelines` is a listing, you can _add_ elements by writing expressions in an amend expression.
 
