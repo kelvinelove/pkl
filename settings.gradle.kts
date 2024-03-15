@@ -4,6 +4,7 @@ include("bench")
 include("docs")
 include("stdlib")
 
+include("pkl-certs")
 include("pkl-cli")
 include("pkl-codegen-java")
 include("pkl-codegen-kotlin")
@@ -47,3 +48,5 @@ if (gradle.startParameter.taskNames.contains("updateDependencyLocks") ||
 for (prj in rootProject.children) {
   prj.buildFileName = "${prj.name}.gradle.kts"
 }
+
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")

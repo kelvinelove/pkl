@@ -661,6 +661,10 @@ jobs:
         at: '.'
     - run:
         command: ./gradlew --info --stacktrace publishToSonatype
+    - persist_to_workspace:
+        root: '.'
+        paths:
+        - pkl-cli/build/executable/
     - run:
         command: |-
           mkdir ~/test-results/
@@ -680,6 +684,10 @@ jobs:
         at: '.'
     - run:
         command: ./gradlew --info --stacktrace -DreleaseBuild=true publishToSonatype closeAndReleaseSonatypeStagingRepository
+    - persist_to_workspace:
+        root: '.'
+        paths:
+        - pkl-cli/build/executable/
     - run:
         command: |-
           mkdir ~/test-results/
@@ -698,6 +706,8 @@ jobs:
         at: '.'
     - run:
         command: |-
+          # exclude build_artifacts.txt from publish
+          rm pkl-cli/build/executable/*.build_artifacts.txt
           gh release create "${CIRCLE_TAG}" \
             --title "${CIRCLE_TAG}" \
             --target "${CIRCLE_SHA1}" \
@@ -708,6 +718,14 @@ jobs:
         name: Publish release on GitHub
     docker:
     - image: maniator/gh:v2.40.1
+  check-patch-file:
+    steps:
+    - checkout
+    - run:
+        command: git apply --reject patches/graalVm23.patch
+    resource_class: small
+    docker:
+    - image: cimg/base:current
   trigger-docsite-build:
     steps:
     - run:
@@ -744,11 +762,12 @@ workflows:
     - gradle-check-jdk11:
         requires:
         - hold
-        - pr-approval/authenticate
     - gradle-check-jdk17:
         requires:
         - hold
-        - pr-approval/authenticate
+    - check-patch-file:
+        requires:
+        - hold
     when:
       matches:
         value: << pipeline.git.branch >>
@@ -757,6 +776,7 @@ workflows:
     jobs:
     - gradle-check-jdk11
     - gradle-check-jdk17
+    - check-patch-file
     - bench
     - pkl-cli-macOS-amd64-snapshot
     - pkl-cli-linux-amd64-snapshot
@@ -767,6 +787,7 @@ workflows:
         requires:
         - gradle-check-jdk11
         - gradle-check-jdk17
+        - check-patch-file
         - bench
         - pkl-cli-macOS-amd64-snapshot
         - pkl-cli-linux-amd64-snapshot
@@ -792,6 +813,12 @@ workflows:
           tags:
             only: /^v?\d+\.\d+\.\d+$/
     - gradle-check-jdk17:
+        filters:
+          branches:
+            ignore: /.*/
+          tags:
+            only: /^v?\d+\.\d+\.\d+$/
+    - check-patch-file:
         filters:
           branches:
             ignore: /.*/
@@ -837,6 +864,7 @@ workflows:
         requires:
         - gradle-check-jdk11
         - gradle-check-jdk17
+        - check-patch-file
         - bench
         - pkl-cli-macOS-amd64-release
         - pkl-cli-linux-amd64-release

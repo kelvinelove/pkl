@@ -24,6 +24,7 @@ import java.util.stream.Collectors
 import kotlin.io.path.createDirectories
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
@@ -34,9 +35,18 @@ import org.pkl.commons.readString
 import org.pkl.commons.test.FileTestUtils
 import org.pkl.commons.test.PackageServer
 import org.pkl.commons.writeString
-import org.pkl.core.runtime.CertificateUtils
 
 class CliProjectPackagerTest {
+  companion object {
+    private val packageServer = PackageServer()
+
+    @AfterAll
+    @JvmStatic
+    fun afterAll() {
+      packageServer.close()
+    }
+  }
+
   @Test
   fun `missing PklProject when inferring a project dir`(@TempDir tempDir: Path) {
     val packager =
@@ -867,8 +877,6 @@ class CliProjectPackagerTest {
 
   @Test
   fun `publish checks`(@TempDir tempDir: Path) {
-    PackageServer.ensureStarted()
-    CertificateUtils.setupAllX509CertificatesGlobally(listOf(FileTestUtils.selfSignedCertificate))
     tempDir.writeFile("project/main.pkl", "res = 1")
     tempDir.writeFile(
       "project/PklProject",
@@ -888,7 +896,11 @@ class CliProjectPackagerTest {
     val e =
       assertThrows<CliException> {
         CliProjectPackager(
-            CliBaseOptions(workingDir = tempDir),
+            CliBaseOptions(
+              workingDir = tempDir,
+              caCertificates = listOf(FileTestUtils.selfSignedCertificate),
+              testPort = packageServer.port
+            ),
             listOf(tempDir.resolve("project")),
             CliTestOptions(),
             ".out/%{name}@%{version}",
@@ -911,8 +923,6 @@ class CliProjectPackagerTest {
 
   @Test
   fun `publish check when package is not yet published`(@TempDir tempDir: Path) {
-    PackageServer.ensureStarted()
-    CertificateUtils.setupAllX509CertificatesGlobally(listOf(FileTestUtils.selfSignedCertificate))
     tempDir.writeFile("project/main.pkl", "res = 1")
     tempDir.writeFile(
       "project/PklProject",
@@ -930,7 +940,11 @@ class CliProjectPackagerTest {
     )
     val out = StringWriter()
     CliProjectPackager(
-        CliBaseOptions(workingDir = tempDir),
+        CliBaseOptions(
+          workingDir = tempDir,
+          caCertificates = listOf(FileTestUtils.selfSignedCertificate),
+          testPort = packageServer.port
+        ),
         listOf(tempDir.resolve("project")),
         CliTestOptions(),
         ".out/%{name}@%{version}",

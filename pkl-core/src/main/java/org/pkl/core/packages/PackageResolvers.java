@@ -21,6 +21,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.net.http.HttpResponse.BodyHandlers;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
@@ -36,15 +39,15 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import java.util.zip.ZipInputStream;
 import javax.annotation.concurrent.GuardedBy;
-import javax.net.ssl.HttpsURLConnection;
 import org.graalvm.collections.EconomicMap;
-import org.pkl.core.Release;
 import org.pkl.core.SecurityManager;
 import org.pkl.core.SecurityManagerException;
+import org.pkl.core.http.HttpClient;
 import org.pkl.core.module.FileResolver;
 import org.pkl.core.module.PathElement;
 import org.pkl.core.module.PathElement.TreePathElement;
@@ -52,6 +55,7 @@ import org.pkl.core.runtime.FileSystemManager;
 import org.pkl.core.runtime.VmExceptionBuilder;
 import org.pkl.core.util.ByteArrayUtils;
 import org.pkl.core.util.EconomicMaps;
+import org.pkl.core.util.HttpUtils;
 import org.pkl.core.util.IoUtils;
 import org.pkl.core.util.Nullable;
 import org.pkl.core.util.Pair;
@@ -59,33 +63,27 @@ import org.pkl.core.util.json.Json.JsonParseException;
 
 class PackageResolvers {
   abstract static class AbstractPackageResolver implements PackageResolver {
-    private static final String USER_AGENT;
-
-    static {
-      var release = Release.current();
-      USER_AGENT = "Pkl/" + release.version() + " (" + release.os() + " " + release.flavor() + ")";
-    }
-
     @GuardedBy("lock")
     private final EconomicMap<PackageUri, DependencyMetadata> cachedDependencyMetadata;
 
     private final SecurityManager securityManager;
 
-    private boolean isClosed = false;
+    protected final HttpClient httpClient;
+
+    private final AtomicBoolean isClosed = new AtomicBoolean();
 
     protected final Object lock = new Object();
 
-    protected AbstractPackageResolver(SecurityManager securityManager) {
+    protected AbstractPackageResolver(SecurityManager securityManager, HttpClient httpClient) {
       this.securityManager = securityManager;
+      this.httpClient = httpClient;
       cachedDependencyMetadata = EconomicMaps.create();
     }
 
     /** Retrieves a dependency's metadata file. */
     public DependencyMetadata getDependencyMetadata(PackageUri uri, @Nullable Checksums checksums)
         throws IOException, SecurityManagerException {
-      if (isClosed) {
-        throw new IllegalStateException();
-      }
+      checkNotClosed();
       synchronized (lock) {
         var metadata = cachedDependencyMetadata.get(uri);
         if (metadata == null) {
@@ -125,29 +123,23 @@ class PackageResolvers {
     @Override
     public List<PathElement> listElements(PackageAssetUri uri, @Nullable Checksums checksums)
         throws IOException, SecurityManagerException {
-      if (isClosed) {
-        throw new IllegalStateException();
-      }
+      checkNotClosed();
       return doListElements(uri, checksums);
     }
 
     @Override
     public boolean hasElement(PackageAssetUri uri, @Nullable Checksums checksums)
         throws IOException, SecurityManagerException {
-      if (isClosed) {
-        throw new IllegalStateException();
-      }
+      checkNotClosed();
       return doHasElement(uri, checksums);
     }
 
     @Override
     public void close() throws IOException {
-      synchronized (lock) {
-        if (isClosed) {
-          return;
+      if (!isClosed.getAndSet(true)) {
+        synchronized (lock) {
+          cachedDependencyMetadata.clear();
         }
-        cachedDependencyMetadata.clear();
-        isClosed = true;
       }
     }
 
@@ -196,21 +188,26 @@ class PackageResolvers {
       }
     }
 
-    protected InputStream openExternalUri(URI uri) throws SecurityManagerException, IOException {
+    protected InputStream openExternalUri(URI uri) throws SecurityManagerException {
+      if (!HttpUtils.isHttpUrl(uri)) {
+        throw new IllegalArgumentException("Expected HTTP(S) URL, but got: " + uri);
+      }
+
       // treat package assets as resources instead of modules
       securityManager.checkReadResource(uri);
-      var connection = (HttpsURLConnection) uri.toURL().openConnection();
-      connection.setRequestProperty("User-Agent", USER_AGENT);
-      int responseCode;
+      var request = HttpRequest.newBuilder(uri).build();
+      HttpResponse<InputStream> response;
       try {
-        responseCode = connection.getResponseCode();
-        if (responseCode != 200) {
-          throw new PackageLoadError("badHttpStatusCode", responseCode, uri);
-        }
+        response = httpClient.send(request, BodyHandlers.ofInputStream());
       } catch (IOException e) {
         throw new PackageLoadError(e, "ioErrorMakingHttpGet", uri, e.getMessage());
       }
-      return connection.getInputStream();
+      try {
+        HttpUtils.checkHasStatusCode200(response);
+      } catch (IOException e) {
+        throw new PackageLoadError("badHttpStatusCode", response.statusCode(), response.uri());
+      }
+      return response.body();
     }
 
     protected IOException fileIsADirectory() {
@@ -236,6 +233,12 @@ class PackageResolvers {
           packageUri.getDisplayName(),
           dependencyMetadata.getPackageZipUrl());
     }
+
+    private void checkNotClosed() {
+      if (isClosed.get()) {
+        throw new IllegalStateException("Package resolver has already been closed.");
+      }
+    }
   }
 
   /**
@@ -252,8 +255,8 @@ class PackageResolvers {
     private final EconomicMap<PackageUri, TreePathElement> cachedTreePathElementRoots =
         EconomicMaps.create();
 
-    InMemoryPackageResolver(SecurityManager securityManager) {
-      super(securityManager);
+    InMemoryPackageResolver(SecurityManager securityManager, HttpClient httpClient) {
+      super(securityManager, httpClient);
     }
 
     private byte[] getPackageBytes(PackageUri packageUri, DependencyMetadata metadata)
@@ -420,8 +423,9 @@ class PackageResolvers {
             PosixFilePermission.GROUP_READ,
             PosixFilePermission.OTHERS_READ);
 
-    public DiskCachedPackageResolver(SecurityManager securityManager, Path cacheDir) {
-      super(securityManager);
+    public DiskCachedPackageResolver(
+        SecurityManager securityManager, HttpClient httpClient, Path cacheDir) {
+      super(securityManager, httpClient);
       this.cacheDir = cacheDir;
       this.tmpDir = cacheDir.resolve("tmp");
     }
@@ -447,13 +451,12 @@ class PackageResolvers {
       return path.substring(lastSep + 1);
     }
 
-    private byte[] downloadUriToPathAndComputeChecksum(URI downloadUri, Path relativePath)
+    private byte[] downloadUriToPathAndComputeChecksum(URI downloadUri, Path path)
         throws IOException, SecurityManagerException {
-      var tmpPath = tmpDir.resolve(relativePath);
-      Files.createDirectories(tmpPath.getParent());
+      Files.createDirectories(path.getParent());
       var inputStream = openExternalUri(downloadUri);
       try (var digestInputStream = newDigestInputStream(inputStream)) {
-        Files.copy(digestInputStream, tmpPath);
+        Files.copy(digestInputStream, path);
         return digestInputStream.getMessageDigest().digest();
       }
     }
@@ -465,8 +468,8 @@ class PackageResolvers {
       if (checksums != null) {
         inputStream = newDigestInputStream(inputStream);
       }
-      Files.createDirectories(path.getParent());
       try (var in = inputStream) {
+        Files.createDirectories(path.getParent());
         Files.copy(in, path);
         if (checksums != null) {
           var digestInputStream = (DigestInputStream) inputStream;

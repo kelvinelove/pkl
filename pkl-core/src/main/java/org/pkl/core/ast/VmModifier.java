@@ -72,6 +72,14 @@ public final class VmModifier {
 
   public static final int VALID_OBJECT_MEMBER_MODIFIERS = LOCAL;
 
+  public static final int TYPEALIAS_OBJECT_MEMBER = TYPE_ALIAS | CONST;
+
+  public static final int LOCAL_TYPEALIAS_OBJECT_MEMBER = LOCAL | TYPEALIAS_OBJECT_MEMBER;
+
+  public static final int CLASS_OBJECT_MEMBER = CLASS | CONST;
+
+  public static final int LOCAL_CLASS_OBJECT_MEMBER = LOCAL | CLASS_OBJECT_MEMBER;
+
   public static boolean isLocal(int modifiers) {
     return (modifiers & LOCAL) != 0;
   }
@@ -164,6 +172,10 @@ public final class VmModifier {
         return "hidden";
       case EXTERNAL:
         return "external";
+      case FIXED:
+        return "fixed";
+      case CONST:
+        return "const";
       default:
         throw new VmExceptionBuilder()
             .bug("Cannot convert internal modifier `%s` to a string.", toString(modifier))
@@ -179,6 +191,8 @@ public final class VmModifier {
     if (isHidden(modifiers)) builder.add(toString(HIDDEN));
     // `external` modifier is part of class contract but not part of property/method contract
     if (isExternal(modifiers) && isClass) builder.add(toString(EXTERNAL));
+    if (isFixed(modifiers)) builder.add(toString(FIXED));
+    if (isConst(modifiers)) builder.add(toString(CONST));
 
     return builder.build();
   }

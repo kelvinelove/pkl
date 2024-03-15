@@ -1,42 +1,132 @@
 package org.pkl.executor
 
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import org.pkl.commons.test.FileTestUtils
+import org.pkl.commons.test.FilteringClassLoader
 import org.pkl.commons.test.PackageServer
 import org.pkl.commons.toPath
-import org.pkl.commons.walk
-import org.pkl.core.runtime.CertificateUtils
+import org.pkl.core.Release
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import kotlin.io.path.createDirectories
+import kotlin.io.path.exists
 
 class EmbeddedExecutorTest {
-  private val pklDistribution by lazy {
-    val libsDir = FileTestUtils.rootProjectDir.resolve("pkl-config-java/build/libs")
-    if (!Files.isDirectory(libsDir)) {
-      throw AssertionError(
-        "JAR `pkl-config-java-all` does not exist. Run `./gradlew :pkl-config-java:build` to create it."
+  /**
+   * An executor that uses a particular combination of ExecutorSpiOptions version, 
+   * pkl-executor version, and Pkl distribution version.
+   */
+  class TestExecutor(
+    private val executor: Executor,
+    private val spiOptionsVersion: Int,
+    private val name: String
+  ) {
+    fun evaluatePath(modulePath: Path, optionSpec: ExecutorOptions.Builder.() -> Unit): String {
+      val options = ExecutorOptions.builder()
+        .apply(optionSpec)
+        .spiOptionsVersion(spiOptionsVersion)
+        .build()
+      return executor.evaluatePath(modulePath, options)
+    }
+    override fun toString(): String = name
+  }
+  
+  companion object {
+    @JvmStatic
+    private val allTestExecutors: List<TestExecutor> by lazy {
+      listOf(
+        TestExecutor(executor1_1.value, 1, "SpiOptions1, Executor1, Distribution1"),
+
+        // This context has a pkl-executor version that is lower than the distribution version.
+        TestExecutor(executor1_2.value, 1, "SpiOptions1, Executor1, Distribution2"),
+
+        TestExecutor(executor2_1.value, 1, "SpiOptions1, Executor2, Distribution1"),
+        TestExecutor(executor2_1.value, 2, "SpiOptions2, Executor2, Distribution1"),
+
+        TestExecutor(executor2_2.value, 1, "SpiOptions1, Executor2, Distribution2"),
+        TestExecutor(executor2_2.value, 2, "SpiOptions2, Executor2, Distribution2")
       )
     }
-    libsDir.walk()
-      .filter { path ->
-        path.toString().let {
-          it.contains("-all") &&
-              it.endsWith(".jar") &&
-              !it.contains("-sources") &&
-              !it.contains("-javadoc")
-        }
+
+    private val currentExecutor: TestExecutor by lazy { 
+      TestExecutor(executor2_2.value, -1, "currentExecutor") 
+    }
+    
+    // A pkl-executor library that supports ExecutorSpiOptions up to v1
+    // and a Pkl distribution that supports ExecutorSpiOptions up to v1.
+    private val executor1_1: Lazy<Executor> = lazy {
+      EmbeddedExecutor(listOf(pklDistribution1), pklExecutorClassLoader1)
+    }
+
+    // A pkl-executor library that supports ExecutorSpiOptions up to v1
+    // and a Pkl distribution that supports ExecutorSpiOptions up to v2.
+    private val executor1_2: Lazy<Executor> = lazy {
+      EmbeddedExecutor(listOf(pklDistribution2), pklExecutorClassLoader1)
+    }
+
+    // A pkl-executor library that supports ExecutorSpiOptions up to v2
+    // and a Pkl distribution that supports ExecutorSpiOptions up to v1.
+    private val executor2_1: Lazy<Executor> = lazy {
+      EmbeddedExecutor(listOf(pklDistribution1), pklExecutorClassLoader2)
+    }
+
+    // A pkl-executor library that supports ExecutorSpiOptions up to v2
+    // and a Pkl distribution that supports ExecutorSpiOptions up to v2.
+    private val executor2_2: Lazy<Executor> = lazy {
+      EmbeddedExecutor(listOf(pklDistribution2), pklExecutorClassLoader2)
+    }
+    
+    private val allExecutors by lazy { 
+      listOf(executor1_1, executor1_2, executor2_1, executor2_2)
+    }
+
+    // a pkl-executor class loader that supports ExecutorSpiOptions up to v1
+    private val pklExecutorClassLoader1: ClassLoader by lazy {
+      FilteringClassLoader(pklExecutorClassLoader2) { className ->
+        !className.endsWith("ExecutorSpiOptions2")
       }
-      .findFirst()
-      .orElseThrow {
-        AssertionError(
-          "JAR `pkl-config-java-all` does not exist. Run `./gradlew :pkl-config-java:build` to create it."
-        )
+    }
+
+    // a pkl-executor class loader that supports ExecutorSpiOptions up to v2
+    private val pklExecutorClassLoader2: ClassLoader by lazy {
+      EmbeddedExecutor::class.java.classLoader
+    }
+    
+    @AfterAll
+    @JvmStatic
+    fun afterAll() {
+      for (executor in allExecutors) {
+        if (executor.isInitialized()) executor.value.close()
       }
+    }
+
+    // a Pkl distribution that supports ExecutorSpiOptions up to v1
+    private val pklDistribution1: Path by lazy {
+      FileTestUtils.rootProjectDir
+        .resolve("pkl-executor/build/pklHistoricalDistributions/pkl-config-java-all-0.25.0.jar").apply {
+        if (!exists()) missingTestFixture()
+      }
+    }
+
+    // a Pkl distribution that supports ExecutorSpiOptions up to v2
+    private val pklDistribution2: Path by lazy {
+      FileTestUtils.rootProjectDir
+        .resolve("pkl-config-java/build/libs/pkl-config-java-all-" +
+          "${Release.current().version().withBuild(null).toString().replaceFirst("dev", "SNAPSHOT")}.jar").apply {
+        if (!exists()) missingTestFixture()
+      }
+    }
+    
+    private fun missingTestFixture(): Nothing =
+      throw AssertionError("Missing test fixture. " +
+        "To fix this problem, run `./gradlew :pkl-executor:prepareTest`.")
   }
 
   @Test
@@ -121,8 +211,9 @@ class EmbeddedExecutorTest {
       .contains("pkl.jar")
   }
 
-  @Test
-  fun `evaluate a module that is missing a ModuleInfo annotation`(@TempDir tempDir: Path) {
+  @ParameterizedTest
+  @MethodSource("getAllTestExecutors")
+  fun `evaluate a module that is missing a ModuleInfo annotation`(executor: TestExecutor, @TempDir tempDir: Path) {
     val pklFile = tempDir.resolve("test.pkl")
     pklFile.toFile().writeText(
       """
@@ -132,24 +223,11 @@ class EmbeddedExecutorTest {
     """.trimIndent()
     )
 
-    val executor = Executors.embedded(listOf(pklDistribution))
     val e = assertThrows<ExecutorException> {
-      executor.use {
-        it.evaluatePath(
-          pklFile,
-          ExecutorOptions(
-            listOf("file:"),
-            listOf("prop:"),
-            mapOf(),
-            mapOf(),
-            listOf(),
-            tempDir,
-            null,
-            null,
-            null,
-            null
-          )
-        )
+      executor.evaluatePath(pklFile) {
+        allowedModules("file:")
+        allowedResources("prop:")
+        rootDir(tempDir)
       }
     }
 
@@ -157,8 +235,9 @@ class EmbeddedExecutorTest {
       .contains("Pkl module `test.pkl` does not state which Pkl version it requires.")
   }
 
-  @Test
-  fun `evaluate a module that requests an incompatible Pkl version`(@TempDir tempDir: Path) {
+  @ParameterizedTest
+  @MethodSource("getAllTestExecutors")
+  fun `evaluate a module that requests an incompatible Pkl version`(executor: TestExecutor, @TempDir tempDir: Path) {
     val pklFile = tempDir.resolve("test.pkl")
     pklFile.toFile().writeText(
       """
@@ -169,24 +248,11 @@ class EmbeddedExecutorTest {
     """.trimIndent()
     )
 
-    val executor = Executors.embedded(listOf(pklDistribution))
     val e = assertThrows<ExecutorException> {
-      executor.use {
-        it.evaluatePath(
-          pklFile,
-          ExecutorOptions(
-            listOf("file:"),
-            listOf("prop:"),
-            mapOf(),
-            mapOf(),
-            listOf(),
-            tempDir,
-            null,
-            null,
-            null,
-            null
-          )
-        )
+      executor.evaluatePath(pklFile) {
+        allowedModules("file:")
+        allowedResources("prop:")
+        rootDir(tempDir)
       }
     }
 
@@ -194,8 +260,9 @@ class EmbeddedExecutorTest {
       .contains("Pkl version `99.99.99` requested by module `test.pkl` is not supported.")
   }
 
-  @Test
-  fun `evaluate a module that reads environment variables and external properties`(@TempDir tempDir: Path) {
+  @ParameterizedTest
+  @MethodSource("getAllTestExecutors")
+  fun `evaluate a module that reads environment variables and external properties`(executor: TestExecutor, @TempDir tempDir: Path) {
     val pklFile = tempDir.resolve("test.pkl")
     pklFile.toFile().writeText(
       """
@@ -207,24 +274,12 @@ class EmbeddedExecutorTest {
     """.trimIndent()
     )
 
-    val executor = Executors.embedded(listOf(pklDistribution))
-    val result = executor.use {
-      it.evaluatePath(
-        pklFile,
-        ExecutorOptions(
-          listOf("file:"),
-          // should `prop:pkl.outputFormat` be allowed automatically?
-          listOf("prop:", "env:"),
-          mapOf("ENV_VAR" to "ENV_VAR"),
-          mapOf("property" to "property"),
-          listOf(),
-          null,
-          null,
-          null,
-          null,
-          null
-        )
-      )
+    val result = executor.evaluatePath(pklFile) {
+      allowedModules("file:")
+      // should `prop:pkl.outputFormat` be allowed automatically?
+      allowedResources("prop:", "env:")
+      environmentVariables(mapOf("ENV_VAR" to "ENV_VAR"))
+      externalProperties(mapOf("property" to "property"))
     }
 
     assertThat(result.trim()).isEqualTo(
@@ -235,8 +290,9 @@ class EmbeddedExecutorTest {
     )
   }
 
-  @Test
-  fun `evaluate a module that depends on another module`(@TempDir tempDir: Path) {
+  @ParameterizedTest
+  @MethodSource("getAllTestExecutors")
+  fun `evaluate a module that depends on another module`(executor: TestExecutor, @TempDir tempDir: Path) {
     val pklFile = tempDir.resolve("test.pkl")
     pklFile.toFile().writeText(
       """
@@ -260,23 +316,9 @@ class EmbeddedExecutorTest {
     """.trimIndent()
     )
 
-    val executor = Executors.embedded(listOf(pklDistribution))
-    val result = executor.use {
-      it.evaluatePath(
-        pklFile,
-        ExecutorOptions(
-          listOf("file:"),
-          listOf("prop:"),
-          mapOf(),
-          mapOf(),
-          listOf(),
-          null,
-          null,
-          null,
-          null,
-          null
-        )
-      )
+    val result = executor.evaluatePath(pklFile) {
+      allowedModules("file:")
+      allowedResources("prop:")
     }
 
     assertThat(result.trim()).isEqualTo(
@@ -288,8 +330,9 @@ class EmbeddedExecutorTest {
     )
   }
 
-  @Test
-  fun `evaluate a module whose evaluation fails`(@TempDir tempDir: Path) {
+  @ParameterizedTest
+  @MethodSource("getAllTestExecutors")
+  fun `evaluate a module whose evaluation fails`(executor: TestExecutor, @TempDir tempDir: Path) {
     val pklFile = tempDir.resolve("test.pkl")
     pklFile.toFile().writeText(
       """
@@ -300,24 +343,11 @@ class EmbeddedExecutorTest {
     """.trimIndent()
     )
 
-    val executor = Executors.embedded(listOf(pklDistribution))
     val e = assertThrows<ExecutorException> {
-      executor.use {
-        it.evaluatePath(
-          pklFile,
-          ExecutorOptions(
-            listOf("file:"),
-            listOf("prop:"),
-            mapOf(),
-            mapOf(),
-            listOf(),
-            tempDir,
-            null,
-            null,
-            null,
-            null
-          )
-        )
+      executor.evaluatePath(pklFile) {
+        allowedModules("file:")
+        allowedResources("prop:")
+        rootDir(tempDir)
       }
     }
 
@@ -328,8 +358,9 @@ class EmbeddedExecutorTest {
       .doesNotContain(tempDir.toString())
   }
 
-  @Test
-  fun `time out a module`(@TempDir tempDir: Path) {
+  @ParameterizedTest
+  @MethodSource("getAllTestExecutors")
+  fun `time out a module`(executor: TestExecutor, @TempDir tempDir: Path) {
     val pklFile = tempDir.resolve("test.pkl")
     pklFile.toFile().writeText(
       """
@@ -342,24 +373,12 @@ class EmbeddedExecutorTest {
     """.trimIndent()
     )
 
-    val executor = Executors.embedded(listOf(pklDistribution))
     val e = assertThrows<ExecutorException> {
-      executor.use {
-        it.evaluatePath(
-          pklFile,
-          ExecutorOptions(
-            listOf("file:"),
-            listOf("prop:"),
-            mapOf(),
-            mapOf(),
-            listOf(),
-            tempDir,
-            Duration.ofSeconds(1),
-            null,
-            null,
-            null
-          )
-        )
+      executor.evaluatePath(pklFile) {
+        allowedModules("file:")
+        allowedResources("prop:")
+        rootDir(tempDir)
+        timeout(Duration.ofSeconds(1))
       }
     }
 
@@ -367,49 +386,9 @@ class EmbeddedExecutorTest {
       .contains("Evaluation timed out after 1 second(s).")
   }
 
-  // Only packages are cached.
-  // Because this test doesn't import a package, it doesn't really test
-  // that the `moduleCacheDir` option takes effect.
-  @Test
-  fun `evaluate a module with enabled module cache`(@TempDir tempDir: Path) {
-    val pklFile = tempDir.resolve("test.pkl")
-    pklFile.toFile().writeText(
-      """
-      @ModuleInfo { minPklVersion = "0.16.0" }
-      module test
-
-      x = 42
-    """.trimIndent()
-    )
-
-    val executor = Executors.embedded(listOf(pklDistribution))
-    val result = executor.use {
-      it.evaluatePath(
-        pklFile,
-        ExecutorOptions(
-          listOf("file:"),
-          listOf("prop:"),
-          mapOf(),
-          mapOf(),
-          listOf(),
-          null,
-          null,
-          null,
-          ExecutorOptions.defaultModuleCacheDir(),
-          null
-        )
-      )
-    }
-
-    assertThat(result.trim()).isEqualTo(
-      """
-      x = 42
-    """.trimIndent().trim()
-    )
-  }
-  
   @Test
   fun `evaluate a module that loads a package`(@TempDir tempDir: Path) {
+    val cacheDir = tempDir.resolve("cache")
     val pklFile = tempDir.resolve("test.pkl")
     pklFile.toFile().writeText(
       """
@@ -421,23 +400,14 @@ class EmbeddedExecutorTest {
       chirpy = new Bird { name = "Chirpy"; favoriteFruit { name = "Orange" } }
     """.trimIndent()
     )
-    PackageServer.ensureStarted()
-    CertificateUtils.setupAllX509CertificatesGlobally(listOf(FileTestUtils.selfSignedCertificate))
-    val executor = Executors.embedded(listOf(pklDistribution))
-    val result = executor.use {
-      it.evaluatePath(pklFile,
-        ExecutorOptions(
-          listOf("file:", "package:", "https:"),
-          listOf("prop:", "package:", "https:"),
-          mapOf(),
-          mapOf(),
-          listOf(),
-          null,
-          null,
-          null,
-          ExecutorOptions.defaultModuleCacheDir(),
-          null)
-      )
+    val result = PackageServer().use { server ->
+      currentExecutor.evaluatePath(pklFile) {
+        allowedModules("file:", "package:", "https:")
+        allowedResources("prop:", "package:", "https:")
+        moduleCacheDir(cacheDir)
+        certificateFiles(FileTestUtils.selfSignedCertificate)
+        testPort(server.port)
+      }
     }
     assertThat(result.trim()).isEqualTo("""
       chirpy {
@@ -447,10 +417,14 @@ class EmbeddedExecutorTest {
         }
       }
     """.trimIndent())
+    
+    // verify that cache was populated
+    assertThat(cacheDir.toFile().list()).isNotEmpty()
   }
 
-  @Test
-  fun `evaluate a project dependency`(@TempDir tempDir: Path) {
+  @ParameterizedTest
+  @MethodSource("getAllTestExecutors")
+  fun `evaluate a project dependency`(executor: TestExecutor, @TempDir tempDir: Path) {
     val cacheDir = tempDir.resolve("packages")
     PackageServer.populateCacheDir(cacheDir)
     val projectDir = tempDir.resolve("project/")
@@ -495,21 +469,11 @@ class EmbeddedExecutorTest {
         result = Swallow
       """.trimIndent()
     )
-    val executor = Executors.embedded(listOf(pklDistribution))
-    val result = executor.use {
-      it.evaluatePath(pklFile,
-        ExecutorOptions(
-          listOf("file:", "package:", "projectpackage:", "https:"),
-          listOf("prop:", "package:", "projectpackage:", "https:"),
-          mapOf(),
-          mapOf(),
-          listOf(),
-          null,
-          null,
-          null,
-          cacheDir,
-          projectDir)
-      )
+    val result = executor.evaluatePath(pklFile) {
+      allowedModules("file:", "package:", "projectpackage:", "https:")
+      allowedResources("prop:", "package:", "projectpackage:", "https:")
+      moduleCacheDir(cacheDir)
+      projectDir(projectDir)
     }
     assertThat(result).isEqualTo("""
       result {

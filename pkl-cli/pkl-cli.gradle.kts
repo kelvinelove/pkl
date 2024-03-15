@@ -38,23 +38,23 @@ dependencies {
   compileOnly(libs.svm)
 
   // CliEvaluator exposes PClass
-  api(project(":pkl-core"))
+  api(projects.pklCore)
   // CliEvaluatorOptions exposes CliBaseOptions
-  api(project(":pkl-commons-cli"))
+  api(projects.pklCommonsCli)
 
-  implementation(project(":pkl-commons"))
+  implementation(projects.pklCommons)
   implementation(libs.jansi)
   implementation(libs.jlineReader)
   implementation(libs.jlineTerminal)
   implementation(libs.jlineTerminalJansi)
-  implementation(project(":pkl-server"))
+  implementation(projects.pklServer)
   implementation(libs.clikt) {
     // force clikt to use our version of the kotlin stdlib
     exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk8")
     exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-common")
   }
 
-  testImplementation(project(":pkl-commons-test"))
+  testImplementation(projects.pklCommonsTest)
 
   stagedMacAmd64Executable(files("$buildDir/executable/pkl-macos-amd64"))
   stagedMacAarch64Executable(files("$buildDir/executable/pkl-macos-aarch64"))
@@ -156,7 +156,7 @@ fun Exec.configureExecutable(isEnabled: Boolean, outputFile: File, extraArgs: Li
         ,"--no-fallback"
         ,"-H:IncludeResources=org/pkl/core/stdlib/.*\\.pkl"
         ,"-H:IncludeResources=org/jline/utils/.*"
-        ,"-H:IncludeResources=org/pkl/commons/cli/commands/IncludedCARoots.pem"
+        ,"-H:IncludeResources=org/pkl/certs/PklCARoots.pem"
         //,"-H:IncludeResources=org/pkl/core/Release.properties"
         ,"-H:IncludeResourceBundles=org.pkl.core.errorMessages"
         ,"--macro:truffle"

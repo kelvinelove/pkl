@@ -1,3 +1,5 @@
+import java.nio.file.Files
+
 plugins {
   pklAllProjects
   pklJavaLibrary
@@ -5,19 +7,22 @@ plugins {
   pklKotlinTest
 }
 
-val pklDistribution: Configuration by configurations.creating
+val pklDistributionCurrent: Configuration by configurations.creating
+val pklHistoricalDistributions: Configuration by configurations.creating
 
 // Because pkl-executor doesn't depend on other Pkl modules
 // (nor has overlapping dependencies that could cause a version conflict),
 // clients are free to use different versions of pkl-executor and (say) pkl-config-java-all.
 // (Pkl distributions used by EmbeddedExecutor are isolated via class loaders.)
 dependencies {
-  pklDistribution(project(":pkl-config-java", "fatJar"))
+  pklDistributionCurrent(project(":pkl-config-java", "fatJar"))
+  @Suppress("UnstableApiUsage")
+  pklHistoricalDistributions(libs.pklConfigJavaAll025)
 
   implementation(libs.slf4jApi)
 
-  testImplementation(project(":pkl-commons-test"))
-  testImplementation(project(":pkl-core"))
+  testImplementation(projects.pklCommonsTest)
+  testImplementation(projects.pklCore)
   testImplementation(libs.slf4jSimple)
 }
 
@@ -49,7 +54,29 @@ sourceSets {
   }
 }
 
+val prepareHistoricalDistributions by tasks.registering {
+  val outputDir = layout.buildDirectory.dir("pklHistoricalDistributions")
+  inputs.files(pklHistoricalDistributions.files())
+  outputs.dir(outputDir)
+  doLast {
+    val distributionDir = outputDir.get().asFile.toPath()
+      .also(Files::createDirectories)
+    for (file in pklHistoricalDistributions.files) {
+      val link = distributionDir.resolve(file.name)
+      if (!Files.isSymbolicLink(link)) {
+        if (Files.exists(link)) {
+          Files.delete(link)
+        }
+        Files.createSymbolicLink(link, file.toPath())
+      }
+    }
+  }
+}
+
+val prepareTest by tasks.registering {
+  dependsOn(pklDistributionCurrent, prepareHistoricalDistributions)
+}
+
 tasks.test {
-  // used by EmbeddedExecutorTest
-  dependsOn(pklDistribution)
+  dependsOn(prepareTest)
 }

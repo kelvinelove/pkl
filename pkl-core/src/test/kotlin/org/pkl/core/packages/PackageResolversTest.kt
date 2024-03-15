@@ -6,16 +6,14 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.api.parallel.Execution
-import org.junit.jupiter.api.parallel.ExecutionMode
 import org.pkl.commons.deleteRecursively
 import org.pkl.commons.readString
 import org.pkl.commons.test.FileTestUtils
 import org.pkl.commons.test.PackageServer
 import org.pkl.commons.test.listFilesRecursively
+import org.pkl.core.http.HttpClient
 import org.pkl.core.SecurityManagers
 import org.pkl.core.module.PathElement
-import org.pkl.core.runtime.CertificateUtils
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -23,7 +21,6 @@ import kotlin.io.path.exists
 import kotlin.io.path.readBytes
 
 class PackageResolversTest {
-  @Execution(ExecutionMode.SAME_THREAD)
   abstract class AbstractPackageResolverTest {
 
     abstract val resolver: PackageResolver
@@ -31,11 +28,19 @@ class PackageResolversTest {
     private val packageRoot = FileTestUtils.rootProjectDir.resolve("pkl-commons-test/src/main/files/packages")
 
     companion object {
+      private val packageServer = PackageServer()
+      
       @JvmStatic
-      @BeforeAll
-      fun beforeAll() {
-        CertificateUtils.setupAllX509CertificatesGlobally(listOf(FileTestUtils.selfSignedCertificate))
-        PackageServer.ensureStarted()
+      @AfterAll
+      fun afterAll() {
+        packageServer.close()
+      }
+      
+      val httpClient: HttpClient by lazy {
+        HttpClient.builder()
+          .addCertificates(FileTestUtils.selfSignedCertificate)
+          .setTestPort(packageServer.port)
+          .build()
       }
     }
 
@@ -196,16 +201,16 @@ class PackageResolversTest {
       @BeforeAll
       @JvmStatic
       fun beforeAll() {
-        CertificateUtils.setupAllX509CertificatesGlobally(listOf(FileTestUtils.selfSignedCertificate))
-        PackageServer.ensureStarted()
         cacheDir.deleteRecursively()
       }
     }
 
-    override val resolver: PackageResolver = PackageResolvers.DiskCachedPackageResolver(SecurityManagers.defaultManager, cacheDir)
+    override val resolver: PackageResolver = PackageResolvers.DiskCachedPackageResolver(
+      SecurityManagers.defaultManager, httpClient, cacheDir)
   }
 
   class InMemoryPackageResolverTest : AbstractPackageResolverTest() {
-    override val resolver: PackageResolver = PackageResolvers.InMemoryPackageResolver(SecurityManagers.defaultManager)
+    override val resolver: PackageResolver = PackageResolvers.InMemoryPackageResolver(
+      SecurityManagers.defaultManager, httpClient)
   }
 }

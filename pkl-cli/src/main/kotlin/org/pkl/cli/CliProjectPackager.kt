@@ -33,7 +33,7 @@ class CliProjectPackager(
   private val skipPublishCheck: Boolean,
   private val consoleWriter: Writer = System.out.writer(),
   private val errWriter: Writer = System.err.writer()
-) : CliAbstractProjectCommand(baseOptions, projectDirs) {
+) : CliProjectCommand(baseOptions, projectDirs) {
 
   private fun runApiTests(project: Project) {
     val apiTests = project.`package`!!.apiTests
@@ -82,6 +82,7 @@ class CliProjectPackager(
         outputPath,
         stackFrameTransformer,
         securityManager,
+        httpClient,
         skipPublishCheck,
         consoleWriter
       )

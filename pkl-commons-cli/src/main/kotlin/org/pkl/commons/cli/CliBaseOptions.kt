@@ -20,6 +20,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.util.regex.Pattern
+import org.pkl.core.http.HttpClient
 import org.pkl.core.module.ProjectDependenciesManager
 import org.pkl.core.util.IoUtils
 
@@ -113,15 +114,21 @@ data class CliBaseOptions(
   val testMode: Boolean = false,
 
   /**
-   * [X.509 certificates](https://en.wikipedia.org/wiki/X.509) in PEM format.
-   *
-   * Elements can either be a [Path] or a [java.io.InputStream]. Input streams are closed when
-   * [CliCommand] is initialized.
-   *
-   * If not empty, this determines the CA root certs used for all HTTPS requests. Warning: this
-   * affects the whole Java runtime, not just the Pkl API!
+   * Unless -1, rewrites HTTP requests that specify port 12110 to the given port. This is an
+   * internal test option.
    */
-  val caCertificates: List<Any> = emptyList(),
+  val testPort: Int = -1,
+
+  /**
+   * The CA certificates to trust.
+   *
+   * The given files must contain [X.509](https://en.wikipedia.org/wiki/X.509) certificates in PEM
+   * format.
+   *
+   * If [caCertificates] is the empty list, the certificate files in `~/.pkl/cacerts/` are used. If
+   * `~/.pkl/cacerts/` does not exist or is empty, Pkl's built-in CA certificates are used.
+   */
+  val caCertificates: List<Path> = listOf(),
 ) {
 
   companion object {
@@ -166,5 +173,28 @@ data class CliBaseOptions(
   val normalizedProjectFile: Path? by lazy {
     projectDir?.resolve(ProjectDependenciesManager.PKL_PROJECT_FILENAME)
       ?: normalizedWorkingDir.getProjectFile(rootDir)
+  }
+
+  /** [caCertificates] after normalization. */
+  val normalizedCaCertificates: List<Path> = caCertificates.map(normalizedWorkingDir::resolve)
+
+  /**
+   * The HTTP client shared between CLI commands created with this [CliBaseOptions] instance.
+   *
+   * To release the resources held by the HTTP client in a timely manner, call its `close()` method.
+   */
+  val httpClient: HttpClient by lazy {
+    with(HttpClient.builder()) {
+      setTestPort(testPort)
+      if (normalizedCaCertificates.isEmpty()) {
+        addDefaultCliCertificates()
+      } else {
+        for (file in normalizedCaCertificates) addCertificates(file)
+      }
+      // Lazy building significantly reduces execution time of commands that do minimal work.
+      // However, it means that HTTP client initialization errors won't surface until an HTTP
+      // request is made.
+      buildLazily()
+    }
   }
 }

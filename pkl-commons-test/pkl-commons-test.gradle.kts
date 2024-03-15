@@ -11,8 +11,9 @@ dependencies {
   api(libs.junitApi)
   api(libs.junitEngine)
   api(libs.junitParams)
-  api(project(":pkl-commons")) // for convenience
+  api(projects.pklCommons) // for convenience
   implementation(libs.assertj)
+  runtimeOnly(projects.pklCerts)
 }
 
 
