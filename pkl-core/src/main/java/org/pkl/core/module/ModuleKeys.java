@@ -16,9 +16,11 @@
 package org.pkl.core.module;
 
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.JarURLConnection;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.http.HttpRequest;
@@ -88,8 +90,8 @@ public final class ModuleKeys {
   }
 
   /** Creates a module key for a {@code file:} module. */
-  public static ModuleKey file(URI uri, Path path) {
-    return new File(uri, path);
+  public static ModuleKey file(URI uri) {
+    return new File(uri);
   }
 
   /**
@@ -110,6 +112,11 @@ public final class ModuleKeys {
   /** Creates a module key for the module with the given URL. */
   public static ModuleKey genericUrl(URI url) {
     return new GenericUrl(url);
+  }
+
+  /** Creates a module key for {@code http:} and {@code https:} uris. */
+  public static ModuleKey http(URI url) {
+    return new Http(url);
   }
 
   /** Creates a module key for the given package. */
@@ -151,13 +158,12 @@ public final class ModuleKeys {
     }
 
     @Override
-    public String loadSource() throws IOException {
+    public String loadSource() {
       return text;
     }
 
     @Override
-    public ResolvedModuleKey resolve(SecurityManager securityManager)
-        throws IOException, SecurityManagerException {
+    public ResolvedModuleKey resolve(SecurityManager securityManager) {
       return this;
     }
 
@@ -273,11 +279,6 @@ public final class ModuleKeys {
     }
 
     @Override
-    public boolean isCached() {
-      return true;
-    }
-
-    @Override
     public ModuleKey getOriginal() {
       return this;
     }
@@ -291,12 +292,10 @@ public final class ModuleKeys {
 
   private static class File extends DependencyAwareModuleKey {
     final URI uri;
-    final Path path;
 
-    File(URI uri, Path path) {
+    File(URI uri) {
       super(uri);
       this.uri = uri;
-      this.path = path;
     }
 
     @Override
@@ -317,7 +316,13 @@ public final class ModuleKeys {
     public ResolvedModuleKey resolve(SecurityManager securityManager)
         throws IOException, SecurityManagerException {
       securityManager.checkResolveModule(uri);
-      var realPath = path.toRealPath();
+      // Disallow paths that contain `\\` characters if on Windows
+      // (require `/` as the path separator on all OSes)
+      var uriPath = uri.getPath();
+      if (java.io.File.separatorChar == '\\' && uriPath != null && uriPath.contains("\\")) {
+        throw new FileNotFoundException();
+      }
+      var realPath = Path.of(uri).toRealPath();
       var resolvedUri = realPath.toUri();
       securityManager.checkResolveModule(resolvedUri);
       return ResolvedModuleKeys.file(this, resolvedUri, realPath);
@@ -326,7 +331,7 @@ public final class ModuleKeys {
     @Override
     protected Map<String, ? extends Dependency> getDependencies() {
       var projectDepsManager = VmContext.get(null).getProjectDependenciesManager();
-      if (projectDepsManager == null || !projectDepsManager.hasPath(path)) {
+      if (projectDepsManager == null || !projectDepsManager.hasPath(Path.of(uri))) {
         throw new PackageLoadError("cannotResolveDependencyNoProject");
       }
       return projectDepsManager.getDependencies();
@@ -452,6 +457,45 @@ public final class ModuleKeys {
     }
   }
 
+  private static class Http implements ModuleKey {
+
+    private final URI uri;
+
+    Http(URI uri) {
+      this.uri = uri;
+    }
+
+    @Override
+    public URI getUri() {
+      return uri;
+    }
+
+    @Override
+    public boolean hasHierarchicalUris() {
+      return true;
+    }
+
+    @Override
+    public boolean isGlobbable() {
+      return false;
+    }
+
+    @Override
+    public ResolvedModuleKey resolve(SecurityManager securityManager)
+        throws IOException, SecurityManagerException {
+      var httpClient = VmContext.get(null).getHttpClient();
+      var request = HttpRequest.newBuilder(uri).build();
+      var response = httpClient.send(request, BodyHandlers.ofInputStream());
+      try (var body = response.body()) {
+        HttpUtils.checkHasStatusCode200(response);
+        securityManager.checkResolveModule(response.uri());
+        String text = IoUtils.readString(body);
+        // intentionally use uri instead of response.uri()
+        return ResolvedModuleKeys.virtual(this, uri, text, true);
+      }
+    }
+  }
+
   private static class GenericUrl implements ModuleKey {
     final URI uri;
 
@@ -470,11 +514,6 @@ public final class ModuleKeys {
     }
 
     @Override
-    public boolean isLocal() {
-      return false;
-    }
-
-    @Override
     public boolean isGlobbable() {
       return false;
     }
@@ -483,23 +522,15 @@ public final class ModuleKeys {
     public ResolvedModuleKey resolve(SecurityManager securityManager)
         throws IOException, SecurityManagerException {
       securityManager.checkResolveModule(uri);
-
-      if (HttpUtils.isHttpUrl(uri)) {
-        var httpClient = VmContext.get(null).getHttpClient();
-        var request = HttpRequest.newBuilder(uri).build();
-        var response = httpClient.send(request, BodyHandlers.ofInputStream());
-        try (var body = response.body()) {
-          HttpUtils.checkHasStatusCode200(response);
-          securityManager.checkResolveModule(response.uri());
-          String text = IoUtils.readString(body);
-          // intentionally use uri instead of response.uri()
-          return ResolvedModuleKeys.virtual(this, uri, text, true);
-        }
-      }
-
       var url = IoUtils.toUrl(uri);
       var conn = url.openConnection();
       conn.connect();
+      if (conn instanceof JarURLConnection && IoUtils.isWindows()) {
+        // On Windows, opening a JarURLConnection prevents the jar file from being deleted, unless
+        // cacheing is disabled.
+        // See https://bugs.openjdk.org/browse/JDK-8239054
+        conn.setUseCaches(false);
+      }
       try (InputStream stream = conn.getInputStream()) {
         URI redirected;
         try {
@@ -672,12 +703,19 @@ public final class ModuleKeys {
       return projectDepsManager;
     }
 
+    private @Nullable Path getLocalPath(Dependency dependency, PackageAssetUri packageAssetUri) {
+      if (!(dependency instanceof LocalDependency localDependency)) {
+        return null;
+      }
+      return localDependency.resolveAssetPath(
+          getProjectDepsResolver().getProjectDir(), packageAssetUri);
+    }
+
     private @Nullable Path getLocalPath(Dependency dependency) {
       if (!(dependency instanceof LocalDependency)) {
         return null;
       }
-      return ((LocalDependency) dependency)
-          .resolveAssetPath(getProjectDepsResolver().getProjectDir(), packageAssetUri);
+      return getLocalPath(dependency, packageAssetUri);
     }
 
     @Override
@@ -704,7 +742,7 @@ public final class ModuleKeys {
       var packageAssetUri = PackageAssetUri.create(baseUri);
       var dependency =
           getProjectDepsResolver().getResolvedDependency(packageAssetUri.getPackageUri());
-      var path = getLocalPath(dependency);
+      var path = getLocalPath(dependency, packageAssetUri);
       if (path != null) {
         securityManager.checkResolveModule(path.toUri());
         return FileResolver.listElements(path);
@@ -721,7 +759,7 @@ public final class ModuleKeys {
       var packageAssetUri = PackageAssetUri.create(elementUri);
       var dependency =
           getProjectDepsResolver().getResolvedDependency(packageAssetUri.getPackageUri());
-      var path = getLocalPath(dependency);
+      var path = getLocalPath(dependency, packageAssetUri);
       if (path != null) {
         securityManager.checkResolveModule(path.toUri());
         return FileResolver.hasElement(path);

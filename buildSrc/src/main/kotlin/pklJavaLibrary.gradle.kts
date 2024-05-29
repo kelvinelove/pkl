@@ -55,10 +55,13 @@ val workAroundKotlinGradlePluginBug by tasks.registering {
     // A problem was found with the configuration of task ':pkl-executor:compileJava' (type 'JavaCompile').
     // > Directory '[...]/pkl/pkl-executor/build/classes/kotlin/main'
     // specified for property 'compileKotlinOutputClasses' does not exist.
-    file("$buildDir/classes/kotlin/main").mkdirs()
+    layout.buildDirectory.dir("classes/kotlin/main").get().asFile.mkdirs()
   }
 }
 
 tasks.compileJava {
   dependsOn(workAroundKotlinGradlePluginBug)
+  // TODO: determine correct limits for Truffle specializations
+  // (see https://graalvm.slack.com/archives/CNQSB2DHD/p1712380902746829)
+  options.compilerArgs.add("-Atruffle.dsl.SuppressWarnings=truffle-limit")
 }

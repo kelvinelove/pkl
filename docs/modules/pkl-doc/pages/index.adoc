@@ -74,7 +74,7 @@ See xref:pkl-gradle:index.adoc#installation[Installation] in the _Gradle Plugin_
 === Java Library
 
 The `pkl-doc` library is available {uri-pkl-doc-maven}[from Maven Central].
-It requires Java 11 or higher.
+It requires Java 17 or higher.
 
 ifndef::is-release-version[]
 NOTE: Snapshots are published to repository `{uri-sonatype}`.
@@ -86,6 +86,25 @@ To use the library in a Gradle project, declare the following dependency:
 
 [tabs]
 ====
+Kotlin::
++
+.build.gradle.kts
+[source,kotlin,subs="+attributes"]
+----
+dependencies {
+  implementation("org.pkl-lang:pkl-doc:{pkl-artifact-version}")
+}
+
+repositories {
+ifdef::is-release-version[]
+  mavenCentral()
+endif::[]
+ifndef::is-release-version[]
+  maven(url = "{uri-sonatype}")
+endif::[]
+}
+----
+
 Groovy::
 +
 .build.gradle
@@ -101,25 +120,6 @@ ifdef::is-release-version[]
 endif::[]
 ifndef::is-release-version[]
   maven { url "{uri-sonatype}" }
-endif::[]
-}
-----
-
-Kotlin::
-+
-.build.gradle.kts
-[source,kotlin,subs="+attributes"]
-----
-dependencies {
-  implementation("org.pkl-lang:pkl-doc:{pkl-artifact-version}")
-}
-
-repositories {
-ifdef::is-release-version[]
-  mavenCentral()
-endif::[]
-ifndef::is-release-version[]
-  maven { url = uri("{uri-sonatype}") }
 endif::[]
 }
 ----

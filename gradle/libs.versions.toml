@@ -4,32 +4,36 @@ assertj = "3.+"
 checksumPlugin = "1.2.0"
 clikt = "3.5.1"
 commonMark = "0.+"
-downloadTaskPlugin = "4.1.2"
+downloadTaskPlugin = "5.6.0"
 geantyref = "1.+"
-googleJavaFormat = "1.15.0"
+googleJavaFormat = "1.21.0"
 # must not use `+` because used in download URL
-graalVm = "22.3.3"
-# intentionally empty; replaced by patch file when building pkl-cli macos/aarch64
-graalVM23JdkVersion = "replace-me"
+graalVm = "23.0.2"
+graalVmJdkVersion = "17.0.10"
 # slightly hacky but convenient place so we remember to update the checksum
-graalVmSha256-darwin-amd64 = "cab6a1436626adc28ec0f72791772315678e7c758e2fbae2cb6758a38f27c56a"
-graalVmSha256-linux-amd64 = "959154e1248108dcd6eb279032cecdd2a6076bdebb345de9532681185231d255"
-graalVmSha256-linux-aarch64 = "177d682f3455d00fa2491246e809d9c9b743187a82115ad3f578998b4935d5a1"
+graalVmSha256-macos-x64 = "14f4bd6417809905f86e786c779d0fc2feb840d7dac35ae3503eb25af0530da0"
+graalVmSha256-macos-aarch64 = "e944c5ce5da56e683fc8f1a57191b46d9cb702930b1688bda064fcf467d876b8"
+graalVmSha256-linux-x64 = "112dc9b92d81a946f1b5b334646151b790785c813e76fcf13527a319003d7e2c"
+graalVmSha256-linux-aarch64 = "c95ac550d070f06666cf8c1023a098380dd565be00866473caf6ff1b7cdf680c"
+graalVmSha256-windows-x64 = "1ab2291e71f54d73e3e57b7fccbf184cabcba37e16ca9d1cf42d08474a7c02f0"
 ideaExtPlugin = "1.1"
 javaPoet = "1.+"
 javaxInject = "1"
 jansi = "2.+"
 jimfs = "1.+"
-jline = "3.+"
+# 3.25.1 doesn't work with native image
+jline = "3.23.0"
 jmh = "1.+"
 jmhPlugin = "0.6.6"
 jsr305 = "3.+"
 junit = "5.+"
 kotlin = "1.7.10"
 # 1.7+ generates much more verbose code
-kotlinPoet = "1.6.+" 
-kotlinxHtml = "0.+"
-kotlinxSerialization = "1.+"
+kotlinPoet = "1.6.+"
+# freeze until updating Kotlin version
+kotlinxHtml = "0.8.1"
+# freeze until updating Kotlin version
+kotlinxSerialization = "1.5.1"
 ktfmt = "0.44"
 # replaces nuValidator's log4j dependency
 # something related to log4j-1.2-api is apparently broken in 2.17.2
@@ -38,7 +42,7 @@ msgpack = "0.9.0"
 nexusPublishPlugin = "1.3.0"
 nuValidator = "20.+"
 paguro = "3.+"
-shadowPlugin = "7.1.0"
+shadowPlugin = "8.1.1"
 slf4j = "1.+"
 # Breaking change in snakeYaml 2.6 (removing DumpSettingsBuilder::setScalarResolver), so pin to 2.5
 snakeYaml = "2.5"
@@ -82,7 +86,7 @@ nuValidator = { group = "nu.validator", name = "validator", version.ref = "nuVal
 # to be replaced with https://github.com/usethesource/capsule or https://github.com/lacuna/bifurcan
 paguro = { group = "org.organicdesign", name = "Paguro", version.ref = "paguro" }
 pklConfigJavaAll025 = { group = "org.pkl-lang", name = "pkl-config-java-all", version = "0.25.0" }
-shadowPlugin = { group = "gradle.plugin.com.github.johnrengelman", name = "shadow", version.ref = "shadowPlugin" }
+shadowPlugin = { group = "com.github.johnrengelman", name = "shadow", version.ref = "shadowPlugin" }
 slf4jApi = { group = "org.slf4j", name = "slf4j-api", version.ref = "slf4j" }
 slf4jSimple = { group = "org.slf4j", name = "slf4j-simple", version.ref = "slf4j" }
 snakeYaml = { group = "org.snakeyaml", name = "snakeyaml-engine", version.ref = "snakeYaml" }

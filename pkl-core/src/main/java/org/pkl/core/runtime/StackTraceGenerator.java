@@ -24,7 +24,7 @@ import org.pkl.core.StackFrame;
 import org.pkl.core.ast.MemberNode;
 import org.pkl.core.util.Nullable;
 
-class StackTraceGenerator {
+final class StackTraceGenerator {
   private final VmException exception;
 
   private final List<StackFrame> frames = new ArrayList<>();
@@ -66,12 +66,12 @@ class StackTraceGenerator {
 
     for (Node current = callNode; current != null; current = current.getParent()) {
       if (current.getSourceSection() != null) {
-        return current instanceof MemberNode
+        return current instanceof MemberNode memberNode
             // Always display the member body's source section instead of the member
             // (root) node's source section (which includes doc comment etc.), even
             // if `callNode` is a child of root node rather than body node.
             // This improves stack trace output for failed property type checks.
-            ? ((MemberNode) current).getBodySection()
+            ? memberNode.getBodySection()
             : current.getSourceSection();
       }
     }

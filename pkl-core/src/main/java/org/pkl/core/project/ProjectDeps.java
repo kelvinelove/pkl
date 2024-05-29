@@ -35,6 +35,7 @@ import org.pkl.core.packages.PackageLoadError;
 import org.pkl.core.packages.PackageUtils;
 import org.pkl.core.runtime.VmExceptionBuilder;
 import org.pkl.core.util.EconomicMaps;
+import org.pkl.core.util.IoUtils;
 import org.pkl.core.util.Nullable;
 import org.pkl.core.util.json.Json;
 import org.pkl.core.util.json.Json.FormatException;
@@ -75,7 +76,7 @@ import org.pkl.core.util.json.JsonWriter;
  * </pre>
  * </code>
  */
-public class ProjectDeps {
+public final class ProjectDeps {
   private static final Set<Integer> supportedSchemaVersions = Set.of(1);
 
   private final EconomicMap<CanonicalPackageUri, Dependency> resolvedDependencies;
@@ -86,7 +87,7 @@ public class ProjectDeps {
     return parse(input);
   }
 
-  public static ProjectDeps parse(String input) throws JsonParseException, URISyntaxException {
+  public static ProjectDeps parse(String input) throws JsonParseException {
     var parsed = Json.parseObject(input);
     var schemaVersion = parsed.getInt("schemaVersion");
     if (!supportedSchemaVersions.contains(schemaVersion)) {
@@ -99,10 +100,9 @@ public class ProjectDeps {
 
   private static EconomicMap<CanonicalPackageUri, Dependency> parseResolvedDependencies(
       Object object) throws JsonParseException, URISyntaxException {
-    if (!(object instanceof JsObject)) {
+    if (!(object instanceof JsObject jsObj)) {
       throw new FormatException("resolvedDependencies", "object", object.getClass());
     }
-    var jsObj = (JsObject) object;
     var ret = EconomicMaps.<CanonicalPackageUri, Dependency>create(jsObj.size());
     for (var entry : jsObj.entrySet()) {
       Dependency resolvedDependency = parseResolvedDependency(entry);
@@ -115,10 +115,9 @@ public class ProjectDeps {
   private static Dependency parseResolvedDependency(Entry<String, Object> entry)
       throws JsonParseException {
     var input = entry.getValue();
-    if (!(input instanceof JsObject)) {
+    if (!(input instanceof JsObject obj)) {
       throw new VmExceptionBuilder().evalError("invalid object").build();
     }
-    var obj = (JsObject) input;
     var type = obj.getString("type");
     var uri = obj.get("uri", PackageUtils::parsePackageUriWithoutChecksums);
     if (type.equals("remote")) {
@@ -198,7 +197,7 @@ public class ProjectDeps {
       jsonWriter.beginObject();
       jsonWriter.name("type").value("local");
       jsonWriter.name("uri").value(localDependency.getPackageUri().toString());
-      jsonWriter.name("path").value(localDependency.getPath().toString());
+      jsonWriter.name("path").value(IoUtils.toNormalizedPathString(localDependency.getPath()));
       jsonWriter.endObject();
     }
 
@@ -211,8 +210,8 @@ public class ProjectDeps {
       while (cursor.advance()) {
         jsonWriter.name(cursor.getKey().toString());
         var dependency = cursor.getValue();
-        if (dependency instanceof LocalDependency) {
-          writeLocalDependency((LocalDependency) dependency);
+        if (dependency instanceof LocalDependency localDependency) {
+          writeLocalDependency(localDependency);
         } else {
           writeRemoteDependency((RemoteDependency) dependency);
         }

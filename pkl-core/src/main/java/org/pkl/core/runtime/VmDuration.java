@@ -22,7 +22,7 @@ import org.pkl.core.util.DurationUtils;
 import org.pkl.core.util.Nullable;
 
 @ValueType
-public final strictfp class VmDuration extends VmValue implements Comparable<VmDuration> {
+public final class VmDuration extends VmValue implements Comparable<VmDuration> {
   private static final Map<Identifier, DurationUnit> UNITS =
       Map.of(
           Identifier.NS, DurationUnit.NANOS,
@@ -140,9 +140,7 @@ public final strictfp class VmDuration extends VmValue implements Comparable<VmD
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) return true;
-    if (!(obj instanceof VmDuration)) return false;
-
-    var other = (VmDuration) obj;
+    if (!(obj instanceof VmDuration other)) return false;
     // converting to a fixed unit guarantees that equals() is commutative and consistent with
     // hashCode()
     return getValue(DurationUnit.NANOS) == other.getValue(DurationUnit.NANOS);

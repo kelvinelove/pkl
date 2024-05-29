@@ -39,7 +39,7 @@ import org.pkl.executor.spi.v1.ExecutorSpiException;
 import org.pkl.executor.spi.v1.ExecutorSpiOptions;
 import org.pkl.executor.spi.v1.ExecutorSpiOptions2;
 
-public class ExecutorSpiImpl implements ExecutorSpi {
+public final class ExecutorSpiImpl implements ExecutorSpi {
   private static final int MAX_HTTP_CLIENTS = 3;
 
   // Don't create a new HTTP client for every executor request.
@@ -109,6 +109,7 @@ public class ExecutorSpiImpl implements ExecutorSpi {
             .addModuleKeyFactory(ModuleKeyFactories.pkg)
             .addModuleKeyFactory(ModuleKeyFactories.projectpackage)
             .addModuleKeyFactory(ModuleKeyFactories.file)
+            .addModuleKeyFactory(ModuleKeyFactories.http)
             .addModuleKeyFactory(ModuleKeyFactories.genericUrl)
             .setEnvironmentVariables(options.getEnvironmentVariables())
             .setExternalProperties(options.getExternalProperties())
@@ -134,8 +135,7 @@ public class ExecutorSpiImpl implements ExecutorSpi {
     List<URI> certificateUris;
     int testPort;
     try {
-      if (options instanceof ExecutorSpiOptions2) {
-        var options2 = (ExecutorSpiOptions2) options;
+      if (options instanceof ExecutorSpiOptions2 options2) {
         certificateFiles = options2.getCertificateFiles();
         certificateUris = options2.getCertificateUris();
         testPort = options2.getTestPort();

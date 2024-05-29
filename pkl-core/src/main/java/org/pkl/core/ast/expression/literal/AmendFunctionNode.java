@@ -43,7 +43,7 @@ public final class AmendFunctionNode extends PklNode {
   public AmendFunctionNode(
       ObjectLiteralNode hostNode,
       TypeNode[] parameterTypeNodes,
-      FrameDescriptor hostFrameDesecriptor) {
+      FrameDescriptor hostFrameDescriptor) {
     super(hostNode.getSourceSection());
 
     isCustomThisScope = hostNode.isCustomThisScope;
@@ -62,8 +62,8 @@ public final class AmendFunctionNode extends PklNode {
       parameterSlots = new int[0];
     }
     var hasForGenVars = false;
-    for (var i = 0; i < hostFrameDesecriptor.getNumberOfSlots(); i++) {
-      var slotInfo = hostFrameDesecriptor.getSlotInfo(i);
+    for (var i = 0; i < hostFrameDescriptor.getNumberOfSlots(); i++) {
+      var slotInfo = hostFrameDescriptor.getSlotInfo(i);
       // Copy for-generator variables from the outer frame descriptor into inner lambda.
       //
       // We need to do this because at parse time within AstBuilder, we inject for-generator
@@ -88,7 +88,7 @@ public final class AmendFunctionNode extends PklNode {
           }
         }
         builder.addSlot(
-            hostFrameDesecriptor.getSlotKind(i), hostFrameDesecriptor.getSlotName(i), null);
+            hostFrameDescriptor.getSlotKind(i), hostFrameDescriptor.getSlotName(i), null);
       } else if (hasForGenVars) {
         builder.addSlot(FrameSlotKind.Illegal, Identifier.DUMMY, null);
       }
@@ -187,7 +187,7 @@ public final class AmendFunctionNode extends PklNode {
       System.arraycopy(frameArguments, 2, arguments, 2, frameArguments.length - 2);
 
       var valueToAmend = callNode.call(functionToAmend.getCallTarget(), arguments);
-      if (!(valueToAmend instanceof VmFunction)) {
+      if (!(valueToAmend instanceof VmFunction newFunctionToAmend)) {
         var materializedFrame = context.frame;
         if (materializedFrame != null) {
           for (var slot : parameterSlots) {
@@ -199,7 +199,6 @@ public final class AmendFunctionNode extends PklNode {
         return amendObjectNode.executeGeneric(frame);
       }
 
-      var newFunctionToAmend = (VmFunction) valueToAmend;
       return currentFunction.copy(
           newFunctionToAmend.getParameterCount(),
           nextFunctionRootNode,

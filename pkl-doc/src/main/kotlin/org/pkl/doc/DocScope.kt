@@ -71,10 +71,7 @@ internal sealed class DocScope {
   fun resolveModuleNameToRelativeDocUrl(name: String): URI? =
     resolveModuleNameToDocUrl(name)?.let { IoUtils.relativize(it, url) }
 
-  abstract fun resolveModuleNameToSourceUrl(
-    name: String,
-    sourceLocation: Member.SourceLocation
-  ): URI?
+  abstract fun resolveModuleNameToSourceUrl(name: String, sourceLocation: SourceLocation): URI?
 
   /** Resolves the given method name relative to this scope. */
   abstract fun resolveMethod(name: String): MethodScope?
@@ -207,10 +204,7 @@ internal class SiteScope(
       else -> null
     }
 
-  override fun resolveModuleNameToSourceUrl(
-    name: String,
-    sourceLocation: Member.SourceLocation
-  ): URI? =
+  override fun resolveModuleNameToSourceUrl(name: String, sourceLocation: SourceLocation): URI? =
     when {
       name.startsWith("pkl.") -> {
         val path = "/stdlib/${name.substring(4)}.pkl"
@@ -253,7 +247,9 @@ internal class PackageScope(
   private val moduleScopes: Map<String, ModuleScope> by lazy {
     modules.associate { module ->
       val docUrl =
-        url.resolve(getModulePath(module.moduleName, modulePrefix).uriEncodedPath + "/index.html")
+        url.resolve(
+          getModulePath(module.moduleName, modulePrefix).pathEncoded.uriEncoded + "/index.html"
+        )
       module.moduleName to ModuleScope(module, docUrl, this)
     }
   }
@@ -262,9 +258,11 @@ internal class PackageScope(
     ModuleScope(pklBaseModule, resolveModuleNameToDocUrl("pkl.base")!!, null)
   }
 
-  override val url: URI by lazy { parent.url.resolve("./$name/$version/index.html") }
+  override val url: URI by lazy { parent.url.resolve("./${name.pathEncoded}/$version/index.html") }
 
-  override val dataUrl: URI by lazy { parent.url.resolve("./data/$name/$version/index.js") }
+  override val dataUrl: URI by lazy {
+    parent.url.resolve("./data/${name.pathEncoded}/$version/index.js")
+  }
 
   fun getModule(name: String): ModuleScope = moduleScopes.getValue(name)
 
@@ -326,7 +324,7 @@ internal class ModuleScope(
     get() = module.moduleName
 
   val path: String by lazy {
-    getModulePath(module.moduleName, parent!!.docPackageInfo.moduleNamePrefix).uriEncodedPath
+    getModulePath(module.moduleName, parent!!.docPackageInfo.moduleNamePrefix).uriEncoded
   }
 
   override val dataUrl: URI by lazy { parent!!.dataUrl.resolve("./$path/index.js") }
@@ -386,11 +384,12 @@ internal class ClassScope(
 ) : PageScope() {
   override val url: URI by lazy {
     // `isModuleClass` distinction is relevant when this scope is a link target
-    if (clazz.isModuleClass) parentUrl else parentUrl.resolve("${clazz.simpleName.uriEncoded}.html")
+    if (clazz.isModuleClass) parentUrl
+    else parentUrl.resolve("${clazz.simpleName.pathEncoded.uriEncodedComponent}.html")
   }
 
   override val dataUrl: URI by lazy {
-    parent!!.dataUrl.resolve("${clazz.simpleName.uriEncoded}.js")
+    parent!!.dataUrl.resolve("${clazz.simpleName.pathEncoded.uriEncodedComponent}.js")
   }
 
   override fun getMethod(name: String): MethodScope? =
@@ -402,10 +401,8 @@ internal class ClassScope(
   override fun resolveModuleNameToDocUrl(name: String): URI? =
     parent!!.resolveModuleNameToDocUrl(name)
 
-  override fun resolveModuleNameToSourceUrl(
-    name: String,
-    sourceLocation: Member.SourceLocation
-  ): URI? = parent!!.resolveModuleNameToSourceUrl(name, sourceLocation)
+  override fun resolveModuleNameToSourceUrl(name: String, sourceLocation: SourceLocation): URI? =
+    parent!!.resolveModuleNameToSourceUrl(name, sourceLocation)
 
   override fun resolveMethod(name: String): MethodScope? =
     clazz.methods[name]?.let { MethodScope(it, this) }
@@ -437,7 +434,7 @@ internal class TypeAliasScope(
     // only used for page scopes
     throw UnsupportedOperationException("resolveModuleNameToDocUrl")
 
-  override fun resolveModuleNameToSourceUrl(name: String, sourceLocation: Member.SourceLocation) =
+  override fun resolveModuleNameToSourceUrl(name: String, sourceLocation: SourceLocation) =
     // only used for page scopes
     throw UnsupportedOperationException("resolveModuleNameToSourceUrl")
 
@@ -463,7 +460,7 @@ internal class MethodScope(val method: PClass.Method, override val parent: DocSc
     // only used for page scopes
     throw UnsupportedOperationException("resolveModuleNameToDocUrl")
 
-  override fun resolveModuleNameToSourceUrl(name: String, sourceLocation: Member.SourceLocation) =
+  override fun resolveModuleNameToSourceUrl(name: String, sourceLocation: SourceLocation) =
     // only used for page scopes
     throw UnsupportedOperationException("resolveModuleNameToSourceUrl")
 
@@ -493,7 +490,7 @@ internal class PropertyScope(
     // only used for page scopes
     throw UnsupportedOperationException("resolveModuleNameToDocUrl")
 
-  override fun resolveModuleNameToSourceUrl(name: String, sourceLocation: Member.SourceLocation) =
+  override fun resolveModuleNameToSourceUrl(name: String, sourceLocation: SourceLocation) =
     // only used for page scopes
     throw UnsupportedOperationException("resolveModuleNameToSourceUrl")
 
@@ -524,7 +521,7 @@ internal class ParameterScope(val name: String, override val parent: DocScope) :
     // only used for page scopes
     throw UnsupportedOperationException("resolveModuleNameToDocUrl")
 
-  override fun resolveModuleNameToSourceUrl(name: String, sourceLocation: Member.SourceLocation) =
+  override fun resolveModuleNameToSourceUrl(name: String, sourceLocation: SourceLocation) =
     // only used for page scopes
     throw UnsupportedOperationException("resolveModuleNameToSourceUrl")
 

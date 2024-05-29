@@ -167,7 +167,7 @@ public abstract class GeneratorSpreadNode extends GeneratorMemberNode {
             .evalError("cannotIterateOverThisValue", VmUtils.getClass(iterable))
             .withLocation(iterableNode)
             .withProgramValue("Value", iterable);
-    if (iterable instanceof VmObject && ((VmObject) iterable).isTyped()) {
+    if (iterable instanceof VmObject vmObject && vmObject.isTyped()) {
       builder.withHint(
           "`Typed` values are not iterable. If you mean to spread its members, convert it to `Dynamic` using `toDynamic()`.");
     }
@@ -343,19 +343,39 @@ public abstract class GeneratorSpreadNode extends GeneratorMemberNode {
   }
 
   protected void checkTypedProperty(VmClass clazz, ObjectMember member) {
-    if (member.isLocal() || clazz.hasProperty(member.getName())) return;
-    CompilerDirectives.transferToInterpreter();
-    var exception =
-        exceptionBuilder()
-            .cannotFindProperty(clazz.getPrototype(), member.getName(), false, false)
-            .build();
-    if (member.getHeaderSection().isAvailable()) {
-      exception
-          .getInsertedStackFrames()
-          .put(
-              getRootNode().getCallTarget(),
-              VmUtils.createStackFrame(member.getHeaderSection(), member.getQualifiedName()));
+    if (member.isLocal()) return;
+
+    var memberName = member.getName();
+    var classProperty = clazz.getProperty(memberName);
+    if (classProperty == null) {
+      CompilerDirectives.transferToInterpreter();
+      var exception =
+          exceptionBuilder()
+              .cannotFindProperty(clazz.getPrototype(), memberName, false, false)
+              .build();
+      if (member.getHeaderSection().isAvailable()) {
+        exception
+            .getInsertedStackFrames()
+            .put(
+                getRootNode().getCallTarget(),
+                VmUtils.createStackFrame(member.getHeaderSection(), member.getQualifiedName()));
+      }
+      throw exception;
     }
-    throw exception;
+
+    if (classProperty.isConstOrFixed()) {
+      CompilerDirectives.transferToInterpreter();
+      var errMsg =
+          classProperty.isConst() ? "cannotAssignConstProperty" : "cannotAssignFixedProperty";
+      var exception = exceptionBuilder().evalError(errMsg, memberName).build();
+      if (member.getHeaderSection().isAvailable()) {
+        exception
+            .getInsertedStackFrames()
+            .put(
+                getRootNode().getCallTarget(),
+                VmUtils.createStackFrame(member.getHeaderSection(), member.getQualifiedName()));
+      }
+      throw exception;
+    }
   }
 }

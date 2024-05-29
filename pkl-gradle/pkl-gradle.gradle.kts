@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.utils.keysToMap
-
 plugins {
   pklAllProjects
   pklJavaLibrary
@@ -34,6 +32,14 @@ dependencies {
   testImplementation(projects.pklCommonsTest)
 }
 
+sourceSets {
+  test {
+    // Remove Gradle distribution JARs from test compile classpath.
+    // This prevents a conflict between Gradle's and Pkl's Kotlin versions.
+    compileClasspath = compileClasspath.filter { !(it.path.contains("dists")) }
+  }
+}
+
 publishing {
   publications {
     withType<MavenPublication>().configureEach {
@@ -59,7 +65,7 @@ gradlePlugin {
 
 gradlePluginTests {
   // keep in sync with `PklPlugin.MIN_GRADLE_VERSION`
-  minGradleVersion = GradleVersion.version("7.2")
+  minGradleVersion = GradleVersion.version("8.1")
   maxGradleVersion = GradleVersion.version("8.99")
   skippedGradleVersions = listOf()
 }

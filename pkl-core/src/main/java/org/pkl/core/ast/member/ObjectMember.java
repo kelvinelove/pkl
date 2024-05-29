@@ -61,8 +61,9 @@ public final class ObjectMember extends Member {
   /**
    * Tells if this member is a property.
    *
-   * <p>Not named `isProperty()` to work around https://bugs.openjdk.java.net/browse/JDK-8185424
-   * (which is apparently triggered by `-Xdoclint:none`).
+   * <p>Not named `isProperty()` to work around <a
+   * href="https://bugs.openjdk.java.net/browse/JDK-8185424">JDK-8185424</a> (which is apparently
+   * triggered by `-Xdoclint:none`).
    */
   public boolean isProp() {
     return name != null;
@@ -106,8 +107,8 @@ public final class ObjectMember extends Member {
 
   public @Nullable Object getLocalPropertyDefaultValue() {
     assert isProp() && isLocal();
-    return getMemberNode() instanceof LocalTypedPropertyNode
-        ? ((LocalTypedPropertyNode) getMemberNode()).getDefaultValue()
+    return getMemberNode() instanceof LocalTypedPropertyNode propertyNode
+        ? propertyNode.getDefaultValue()
         : VmDynamic.empty();
   }
 

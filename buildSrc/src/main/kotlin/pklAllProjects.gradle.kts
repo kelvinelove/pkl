@@ -24,13 +24,13 @@ configurations {
 
 plugins.withType(JavaPlugin::class).configureEach {
   val java = project.extensions.getByType<JavaPluginExtension>()
-  java.sourceCompatibility = JavaVersion.VERSION_11
-  java.targetCompatibility = JavaVersion.VERSION_11
+  java.sourceCompatibility = JavaVersion.VERSION_17
+  java.targetCompatibility = JavaVersion.VERSION_17
 }
 
 tasks.withType<KotlinCompile>().configureEach {
   kotlinOptions {
-    jvmTarget = "11"
+    jvmTarget = "17"
     freeCompilerArgs = freeCompilerArgs + listOf("-Xjsr305=strict", "-Xjvm-default=all")
   }
 }
@@ -93,3 +93,28 @@ val updateDependencyLocks by tasks.registering {
 }
 
 val allDependencies by tasks.registering(DependencyReportTask::class)
+
+tasks.withType(Test::class).configureEach {
+  System.getProperty("testReportsDir")?.let { reportsDir ->
+    reports.junitXml.outputLocation.set(file(reportsDir).resolve(project.name).resolve(name))
+  }
+  debugOptions {
+    enabled = System.getProperty("jvmdebug")?.toBoolean() ?: false
+    @Suppress("UnstableApiUsage")
+    host = "*"
+    port = 5005
+    suspend = true
+    server = true
+  }
+}
+
+tasks.withType(JavaExec::class).configureEach {
+  debugOptions {
+    enabled = System.getProperty("jvmdebug")?.toBoolean() ?: false
+    @Suppress("UnstableApiUsage")
+    host = "*"
+    port = 5005
+    suspend = true
+    server = true
+  }
+}

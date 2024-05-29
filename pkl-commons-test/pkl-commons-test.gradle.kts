@@ -16,116 +16,118 @@ dependencies {
   runtimeOnly(projects.pklCerts)
 }
 
-
 /**
  * Creates test packages from the `src/test/files/packages` directory.
  *
  * These packages are used by PackageServer to serve assets when running
  * LanguageSnippetTests and PackageResolversTest.
  */
-val createTestPackages = tasks.create("createTestPackages")
+val createTestPackages by tasks.registering
 
-fun toHex(hash: ByteArray): String {
-  val hexDigitTable = charArrayOf('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f')
-  val builder = StringBuilder(hash.size * 2)
-  for (b in hash) {
-    builder.append(hexDigitTable[b.toInt() shr 4 and 0xF])
-    builder.append(hexDigitTable[b.toInt() and 0xF])
-  }
-  return builder.toString()
-}
-
-fun File.computeChecksum(): String {
-  val md = MessageDigest.getInstance("SHA-256")
-  val hash = md.digest(readBytes())
-  return toHex(hash)
-}
-
+// make sure that declaring a dependency on this project suffices to have test fixtures generated
 tasks.processResources {
   dependsOn(createTestPackages)
-  dependsOn(generateCerts)
+  dependsOn(exportCerts)
 }
-
-val mainSourceSet by sourceSets.named("main") {
-  resources {
-    srcDir(buildDir.resolve("test-packages/"))
-    srcDir(buildDir.resolve("keystore/"))
-  }
-}
-
-val sourcesJar = tasks.named("sourcesJar").get()
 
 for (packageDir in file("src/main/files/packages").listFiles()!!) {
   if (!packageDir.isDirectory) continue
-  val destinationDir = buildDir.resolve("test-packages/org/pkl/commons/test/packages/${packageDir.name}")
-  val metadataJson = packageDir.resolve("${packageDir.name}.json")
+  val destinationDir = layout.buildDirectory.dir("test-packages/${packageDir.name}")
+  val metadataJson = file("$packageDir/${packageDir.name}.json")
   val packageContents = packageDir.resolve("package")
   val zipFileName = "${packageDir.name}.zip"
-  val archiveFile = destinationDir.resolve(zipFileName)
+  val archiveFile = destinationDir.map { it.file(zipFileName) }
 
-  tasks.create("zip-${packageDir.name}", Zip::class) {
+  val zipTask = tasks.register("zip-${packageDir.name}", Zip::class) {
+    destinationDirectory.set(destinationDir)
     archiveFileName.set(zipFileName)
     from(packageContents)
-    destinationDirectory.set(destinationDir)
     // required so that checksums are reproducible
     isPreserveFileTimestamps = false
     isReproducibleFileOrder = true
   }
 
-  val copyTask = tasks.create("copy-${packageDir.name}", Copy::class) {
-    dependsOn("zip-${packageDir.name}")
+  val copyTask = tasks.register("copy-${packageDir.name}", Copy::class) {
+    dependsOn(zipTask)
     from(metadataJson)
     into(destinationDir)
-    val shasumFile = file("$destinationDir/${packageDir.name}.json.sha256")
+    val shasumFile = destinationDir.map { it.file("${packageDir.name}.json.sha256") }
     outputs.file(shasumFile)
-    doFirst {
-      expand(mapOf("computedChecksum" to archiveFile.computeChecksum()))
+    filter { line ->
+      line.replaceFirst("\$computedChecksum", archiveFile.get().asFile.computeChecksum())
     }
     doLast {
-      val outputFile = file("$destinationDir").resolve("${packageDir.name}.json")
-      shasumFile.writeText(outputFile.computeChecksum())
+      val outputFile = destinationDir.get().asFile.resolve("${packageDir.name}.json")
+      if (buildInfo.os.isWindows) {
+        val contents = outputFile.readText()
+        // workaround for https://github.com/gradle/gradle/issues/1151
+        outputFile.writeText(contents.replace("\r\n", "\n"))
+      }
+      shasumFile.get().asFile.writeText(outputFile.computeChecksum())
     }
-    createTestPackages.dependsOn(this)
   }
 
-  sourcesJar.dependsOn.add(copyTask)
+  createTestPackages.configure { 
+    dependsOn(copyTask) 
+  }
 }
 
+val keystoreDir = layout.buildDirectory.dir("keystore")
+val keystoreName = "localhost.p12"
+val keystoreFile = keystoreDir.map { it.file(keystoreName) }
+val certsFileName = "localhost.pem"
+
 val generateKeys by tasks.registering(JavaExec::class) {
-  val outputFile = file("$buildDir/keystore/localhost.p12")
-  outputs.file(outputFile)
+  outputs.file(keystoreFile)
   mainClass.set("sun.security.tools.keytool.Main")
   args = listOf(
     "-genkeypair",
     "-keyalg", "RSA",
     "-alias", "integ_tests",
-    "-keystore", "localhost.p12",
+    "-keystore", keystoreName,
     "-storepass", "password",
     "-dname", "CN=localhost"
   )
-  workingDir = file("$buildDir/keystore/")
-  onlyIf { !outputFile.exists() }
+  workingDir(keystoreDir)
   doFirst {
     workingDir.mkdirs()
+    keystoreFile.get().asFile.delete()
   }
 }
 
-val generateCerts by tasks.registering(JavaExec::class) {
-  dependsOn("generateKeys")
-  val outputFile = file("$buildDir/keystore/localhost.pem")
+val exportCerts by tasks.registering(JavaExec::class) {
+  val outputFile = keystoreDir.map { it.file(certsFileName) }
+  dependsOn(generateKeys)
+  inputs.file(keystoreFile)
   outputs.file(outputFile)
   mainClass.set("sun.security.tools.keytool.Main")
   args = listOf(
     "-exportcert",
     "-alias", "integ_tests",
     "-storepass", "password",
-    "-keystore", "localhost.p12",
+    "-keystore", keystoreName,
     "-rfc",
-    "-file", "localhost.pem"
+    "-file", certsFileName
   )
-  workingDir = file("$buildDir/keystore/")
-  onlyIf { !outputFile.exists() }
+  workingDir(keystoreDir)
   doFirst {
     workingDir.mkdirs()
+    outputFile.get().asFile.delete()
   }
+}
+
+fun toHex(hash: ByteArray): String {
+  val hexDigitTable = charArrayOf('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f')
+  return buildString(hash.size * 2) {
+    for (b in hash) {
+      append(hexDigitTable[b.toInt() shr 4 and 0xF])
+      append(hexDigitTable[b.toInt() and 0xF])
+    }
+  }
+}
+
+fun File.computeChecksum(): String {
+  val md = MessageDigest.getInstance("SHA-256")
+  val hash = md.digest(readBytes())
+  return toHex(hash)
 }

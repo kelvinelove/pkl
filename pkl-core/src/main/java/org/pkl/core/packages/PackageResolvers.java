@@ -16,7 +16,6 @@
 package org.pkl.core.packages;
 
 import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -61,7 +60,9 @@ import org.pkl.core.util.Nullable;
 import org.pkl.core.util.Pair;
 import org.pkl.core.util.json.Json.JsonParseException;
 
-class PackageResolvers {
+final class PackageResolvers {
+  private PackageResolvers() {}
+
   abstract static class AbstractPackageResolver implements PackageResolver {
     @GuardedBy("lock")
     private final EconomicMap<PackageUri, DependencyMetadata> cachedDependencyMetadata;
@@ -246,7 +247,7 @@ class PackageResolvers {
    *
    * <p>This gets used when the cache dir is not set.
    */
-  static class InMemoryPackageResolver extends AbstractPackageResolver {
+  static final class InMemoryPackageResolver extends AbstractPackageResolver {
     @GuardedBy("lock")
     private final EconomicMap<PackageUri, EconomicMap<String, ByteBuffer>> cachedEntries =
         EconomicMaps.create();
@@ -334,13 +335,12 @@ class PackageResolvers {
       var entries = cachedEntries.get(packageUri);
       // need to normalize here but not in `doListElments` nor `doHasElement` because
       // `TreePathElement.getElement` does normalization already.
-      var path = uri.getAssetPath().normalize().toString();
-      assert path.startsWith("/");
+      var path = IoUtils.toNormalizedPathString(Path.of(uri.getAssetPath()).normalize());
       return entries.get(path).array();
     }
 
     @Override
-    public List<PathElement> doListElements(PackageAssetUri uri, Checksums checksums)
+    public List<PathElement> doListElements(PackageAssetUri uri, @Nullable Checksums checksums)
         throws IOException, SecurityManagerException {
       var packageUri = uri.getPackageUri();
       ensurePackageDownloaded(packageUri, checksums);
@@ -352,7 +352,7 @@ class PackageResolvers {
     }
 
     @Override
-    public boolean doHasElement(PackageAssetUri uri, Checksums checksums)
+    public boolean doHasElement(PackageAssetUri uri, @Nullable Checksums checksums)
         throws IOException, SecurityManagerException {
       var packageUri = uri.getPackageUri();
       ensurePackageDownloaded(packageUri, checksums);
@@ -407,12 +407,12 @@ class PackageResolvers {
    * <p>Uses the built-in zip file system in {@link jdk.nio.zipfs} for reading files from the zip
    * archive.
    */
-  static class DiskCachedPackageResolver extends AbstractPackageResolver {
+  static final class DiskCachedPackageResolver extends AbstractPackageResolver {
     private final Path cacheDir;
 
     private final Path tmpDir;
 
-    private static final String CACHE_DIR_PREFIX = "package-1";
+    private static final String CACHE_DIR_PREFIX = "package-2";
 
     @GuardedBy("lock")
     private final EconomicMap<PackageUri, FileSystem> fileSystems = EconomicMaps.create();
@@ -437,12 +437,14 @@ class PackageResolvers {
         return path;
       }
       var checksumIdx = path.lastIndexOf("::");
-      return path.substring(0, checksumIdx);
+      return IoUtils.encodePath(path.substring(0, checksumIdx));
     }
 
     private Path getRelativePath(PackageUri uri) {
       return Path.of(
-          CACHE_DIR_PREFIX, uri.getUri().getAuthority(), getEffectivePackageUriPath(uri));
+          CACHE_DIR_PREFIX,
+          IoUtils.encodePath(uri.getUri().getAuthority()),
+          getEffectivePackageUriPath(uri));
     }
 
     private String getLastSegmentName(PackageUri packageUri) {
@@ -493,7 +495,9 @@ class PackageResolvers {
         downloadMetadata(packageUri, requestUri, tmpPath, checksums);
         Files.createDirectories(cachePath.getParent());
         Files.move(tmpPath, cachePath, StandardCopyOption.ATOMIC_MOVE);
-        Files.setPosixFilePermissions(cachePath, FILE_PERMISSIONS);
+        if (!IoUtils.isWindows()) {
+          Files.setPosixFilePermissions(cachePath, FILE_PERMISSIONS);
+        }
         return cachePath;
       } finally {
         Files.deleteIfExists(tmpPath);
@@ -542,7 +546,9 @@ class PackageResolvers {
         verifyPackageZipBytes(packageUri, dependencyMetadata, checksumBytes);
         Files.createDirectories(cachePath.getParent());
         Files.move(tmpPath, cachePath, StandardCopyOption.ATOMIC_MOVE);
-        Files.setPosixFilePermissions(cachePath, FILE_PERMISSIONS);
+        if (!IoUtils.isWindows()) {
+          Files.setPosixFilePermissions(cachePath, FILE_PERMISSIONS);
+        }
         return cachePath;
       } finally {
         Files.deleteIfExists(tmpPath);
@@ -590,7 +596,7 @@ class PackageResolvers {
       var cacheFile = packageDir.resolve(packageDir.getFileName() + ".json");
       if (Files.exists(cacheFile)) {
         return readDependencyMetadataAndComputeChecksum(
-            packageUri, new FileInputStream(cacheFile.toFile()));
+            packageUri, Files.newInputStream(cacheFile));
       }
       return super.getDependencyMetadataAndComputeChecksum(packageUri);
     }

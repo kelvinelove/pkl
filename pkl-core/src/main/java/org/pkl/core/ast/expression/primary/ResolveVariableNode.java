@@ -194,7 +194,7 @@ public final class ResolveVariableNode extends ExpressionNode {
       }
     }
 
-    // Assuming this method exists at all, it must be a method accessible through `this`.
+    // Assuming this property exists at all, it must be a property accessible through `this`.
     ///
     // Reading a property off of implicit `this` needs a const check if this node is not in a const
     // scope.
@@ -226,15 +226,12 @@ public final class ResolveVariableNode extends ExpressionNode {
       return;
     }
     var memberIsOutsideConstScope = levelsUp > constDepth;
-    var invalid = false;
-    switch (constLevel) {
-      case ALL:
-        invalid = memberIsOutsideConstScope && !member.isConst();
-        break;
-      case MODULE:
-        invalid = currOwner.isModuleObject() && !member.isConst();
-        break;
-    }
+    var invalid =
+        switch (constLevel) {
+          case ALL -> memberIsOutsideConstScope && !member.isConst();
+          case MODULE -> currOwner.isModuleObject() && !member.isConst();
+          default -> false;
+        };
     if (invalid) {
       throw exceptionBuilder().evalError("propertyMustBeConst", variableName.toString()).build();
     }

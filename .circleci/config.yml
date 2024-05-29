@@ -12,25 +12,19 @@ jobs:
     - run:
         command: |-
           export PATH=~/staticdeps/bin:$PATH
-          ./gradlew --info --stacktrace -DreleaseBuild=true pkl-cli:macExecutableAmd64 pkl-core:testMacExecutableAmd64
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results -DreleaseBuild=true pkl-cli:macExecutableAmd64 pkl-core:testMacExecutableAmd64
         name: gradle buildNative
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
       LANG: en_US.UTF-8
     resource_class: macos.m1.large.gen1
     macos:
-      xcode: 15.2.0
+      xcode: 15.3.0
   pkl-cli-linux-amd64-release:
     steps:
     - checkout
@@ -46,7 +40,7 @@ jobs:
 
           # install jdk
           curl -L \
-           https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.20.1%2B1/OpenJDK11U-jdk_x64_linux_hotspot_11.0.20.1_1.tar.gz -o /tmp/jdk.tar.gz
+           https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.9_9.tar.gz -o /tmp/jdk.tar.gz
 
           mkdir /jdk \
             && cd /jdk \
@@ -94,18 +88,12 @@ jobs:
     - run:
         command: |-
           export PATH=~/staticdeps/bin:$PATH
-          ./gradlew --info --stacktrace -DreleaseBuild=true pkl-cli:linuxExecutableAmd64 pkl-core:testLinuxExecutableAmd64
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results -DreleaseBuild=true pkl-cli:linuxExecutableAmd64 pkl-core:testLinuxExecutableAmd64
         name: gradle buildNative
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
@@ -118,29 +106,21 @@ jobs:
     steps:
     - checkout
     - run:
-        command: git apply patches/graalVm23.patch
-    - run:
         command: |-
           export PATH=~/staticdeps/bin:$PATH
-          ./gradlew --info --stacktrace -DreleaseBuild=true pkl-cli:macExecutableAarch64 pkl-core:testMacExecutableAarch64
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results -DreleaseBuild=true pkl-cli:macExecutableAarch64 pkl-core:testMacExecutableAarch64
         name: gradle buildNative
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
       LANG: en_US.UTF-8
     resource_class: macos.m1.large.gen1
     macos:
-      xcode: 15.2.0
+      xcode: 15.3.0
   pkl-cli-linux-aarch64-release:
     steps:
     - checkout
@@ -156,7 +136,7 @@ jobs:
 
           # install jdk
           curl -L \
-           https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.20.1%2B1/OpenJDK11U-jdk_aarch64_linux_hotspot_11.0.20.1_1.tar.gz -o /tmp/jdk.tar.gz
+           https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9/OpenJDK17U-jdk_aarch64_linux_hotspot_17.0.9_9.tar.gz -o /tmp/jdk.tar.gz
 
           mkdir /jdk \
             && cd /jdk \
@@ -188,18 +168,12 @@ jobs:
     - run:
         command: |-
           export PATH=~/staticdeps/bin:$PATH
-          ./gradlew --info --stacktrace -DreleaseBuild=true pkl-cli:linuxExecutableAarch64 pkl-core:testLinuxExecutableAarch64
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results -DreleaseBuild=true pkl-cli:linuxExecutableAarch64 pkl-core:testLinuxExecutableAarch64
         name: gradle buildNative
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
@@ -223,7 +197,7 @@ jobs:
 
           # install jdk
           curl -L \
-           https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.20.1%2B1/OpenJDK11U-jdk_x64_linux_hotspot_11.0.20.1_1.tar.gz -o /tmp/jdk.tar.gz
+           https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.9_9.tar.gz -o /tmp/jdk.tar.gz
 
           mkdir /jdk \
             && cd /jdk \
@@ -271,18 +245,12 @@ jobs:
     - run:
         command: |-
           export PATH=~/staticdeps/bin:$PATH
-          ./gradlew --info --stacktrace -DreleaseBuild=true pkl-cli:alpineExecutableAmd64 pkl-core:testAlpineExecutableAmd64
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results -DreleaseBuild=true pkl-cli:alpineExecutableAmd64 pkl-core:testAlpineExecutableAmd64
         name: gradle buildNative
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
@@ -291,6 +259,26 @@ jobs:
     resource_class: xlarge
     docker:
     - image: oraclelinux:8-slim
+  pkl-cli-windows-amd64-release:
+    steps:
+    - checkout
+    - run:
+        command: |-
+          export PATH=~/staticdeps/bin:$PATH
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results -DreleaseBuild=true pkl-cli:windowsExecutableAmd64 pkl-core:testWindowsExecutableAmd64
+        name: gradle buildNative
+        shell: bash.exe
+    - persist_to_workspace:
+        root: '.'
+        paths:
+        - pkl-cli/build/executable/
+    - store_test_results:
+        path: ~/test-results
+    environment:
+      LANG: en_US.UTF-8
+    resource_class: windows.large
+    machine:
+      image: windows-server-2022-gui:current
   pkl-cli-macOS-amd64-snapshot:
     steps:
     - checkout
@@ -300,25 +288,19 @@ jobs:
     - run:
         command: |-
           export PATH=~/staticdeps/bin:$PATH
-          ./gradlew --info --stacktrace pkl-cli:macExecutableAmd64 pkl-core:testMacExecutableAmd64
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results pkl-cli:macExecutableAmd64 pkl-core:testMacExecutableAmd64
         name: gradle buildNative
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
       LANG: en_US.UTF-8
     resource_class: macos.m1.large.gen1
     macos:
-      xcode: 15.2.0
+      xcode: 15.3.0
   pkl-cli-linux-amd64-snapshot:
     steps:
     - checkout
@@ -334,7 +316,7 @@ jobs:
 
           # install jdk
           curl -L \
-           https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.20.1%2B1/OpenJDK11U-jdk_x64_linux_hotspot_11.0.20.1_1.tar.gz -o /tmp/jdk.tar.gz
+           https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.9_9.tar.gz -o /tmp/jdk.tar.gz
 
           mkdir /jdk \
             && cd /jdk \
@@ -382,18 +364,12 @@ jobs:
     - run:
         command: |-
           export PATH=~/staticdeps/bin:$PATH
-          ./gradlew --info --stacktrace pkl-cli:linuxExecutableAmd64 pkl-core:testLinuxExecutableAmd64
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results pkl-cli:linuxExecutableAmd64 pkl-core:testLinuxExecutableAmd64
         name: gradle buildNative
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
@@ -406,29 +382,21 @@ jobs:
     steps:
     - checkout
     - run:
-        command: git apply patches/graalVm23.patch
-    - run:
         command: |-
           export PATH=~/staticdeps/bin:$PATH
-          ./gradlew --info --stacktrace pkl-cli:macExecutableAarch64 pkl-core:testMacExecutableAarch64
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results pkl-cli:macExecutableAarch64 pkl-core:testMacExecutableAarch64
         name: gradle buildNative
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
       LANG: en_US.UTF-8
     resource_class: macos.m1.large.gen1
     macos:
-      xcode: 15.2.0
+      xcode: 15.3.0
   pkl-cli-linux-aarch64-snapshot:
     steps:
     - checkout
@@ -444,7 +412,7 @@ jobs:
 
           # install jdk
           curl -L \
-           https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.20.1%2B1/OpenJDK11U-jdk_aarch64_linux_hotspot_11.0.20.1_1.tar.gz -o /tmp/jdk.tar.gz
+           https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9/OpenJDK17U-jdk_aarch64_linux_hotspot_17.0.9_9.tar.gz -o /tmp/jdk.tar.gz
 
           mkdir /jdk \
             && cd /jdk \
@@ -476,18 +444,12 @@ jobs:
     - run:
         command: |-
           export PATH=~/staticdeps/bin:$PATH
-          ./gradlew --info --stacktrace pkl-cli:linuxExecutableAarch64 pkl-core:testLinuxExecutableAarch64
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results pkl-cli:linuxExecutableAarch64 pkl-core:testLinuxExecutableAarch64
         name: gradle buildNative
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
@@ -511,7 +473,7 @@ jobs:
 
           # install jdk
           curl -L \
-           https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.20.1%2B1/OpenJDK11U-jdk_x64_linux_hotspot_11.0.20.1_1.tar.gz -o /tmp/jdk.tar.gz
+           https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.9%2B9/OpenJDK17U-jdk_x64_linux_hotspot_17.0.9_9.tar.gz -o /tmp/jdk.tar.gz
 
           mkdir /jdk \
             && cd /jdk \
@@ -559,18 +521,12 @@ jobs:
     - run:
         command: |-
           export PATH=~/staticdeps/bin:$PATH
-          ./gradlew --info --stacktrace pkl-cli:alpineExecutableAmd64 pkl-core:testAlpineExecutableAmd64
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results pkl-cli:alpineExecutableAmd64 pkl-core:testAlpineExecutableAmd64
         name: gradle buildNative
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
@@ -579,127 +535,124 @@ jobs:
     resource_class: xlarge
     docker:
     - image: oraclelinux:8-slim
-  gradle-check-jdk11:
+  pkl-cli-windows-amd64-snapshot:
     steps:
     - checkout
     - run:
-        command: ./gradlew --info --stacktrace check
-        name: gradle check
-    - run:
         command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
+          export PATH=~/staticdeps/bin:$PATH
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results pkl-cli:windowsExecutableAmd64 pkl-core:testWindowsExecutableAmd64
+        name: gradle buildNative
+        shell: bash.exe
+    - persist_to_workspace:
+        root: '.'
+        paths:
+        - pkl-cli/build/executable/
     - store_test_results:
         path: ~/test-results
     environment:
       LANG: en_US.UTF-8
-    docker:
-    - image: cimg/openjdk:11.0
+    resource_class: windows.large
+    machine:
+      image: windows-server-2022-gui:current
   gradle-check-jdk17:
     steps:
     - checkout
     - run:
-        command: ./gradlew --info --stacktrace check
+        command: ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results check
         name: gradle check
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
       LANG: en_US.UTF-8
     docker:
     - image: cimg/openjdk:17.0
-  bench:
+  gradle-check-jdk21:
     steps:
     - checkout
     - run:
-        command: ./gradlew --info --stacktrace bench:jmh
-        name: bench:jmh
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
+        command: ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results check
+        name: gradle check
     - store_test_results:
         path: ~/test-results
     environment:
       LANG: en_US.UTF-8
     docker:
-    - image: cimg/openjdk:11.0
+    - image: cimg/openjdk:21.0
+  gradle-check-jdk17-windows:
+    steps:
+    - checkout
+    - run:
+        command: ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results check
+        name: gradle check
+    - store_test_results:
+        path: ~/test-results
+    environment:
+      LANG: en_US.UTF-8
+    resource_class: windows.large
+    machine:
+      image: windows-server-2022-gui:current
+  bench:
+    steps:
+    - checkout
+    - run:
+        command: ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results bench:jmh
+        name: bench:jmh
+    - store_test_results:
+        path: ~/test-results
+    environment:
+      LANG: en_US.UTF-8
+    docker:
+    - image: cimg/openjdk:17.0
   gradle-compatibility:
     steps:
     - checkout
     - run:
         command: |-
-          ./gradlew --info --stacktrace :pkl-gradle:build \
+          ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results :pkl-gradle:build \
             :pkl-gradle:compatibilityTestReleases \
             :pkl-gradle:compatibilityTestCandidate
         name: gradle compatibility
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
       LANG: en_US.UTF-8
     docker:
-    - image: cimg/openjdk:11.0
+    - image: cimg/openjdk:17.0
   deploy-snapshot:
     steps:
     - checkout
     - attach_workspace:
         at: '.'
     - run:
-        command: ./gradlew --info --stacktrace publishToSonatype
+        command: ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results publishToSonatype
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
       LANG: en_US.UTF-8
     docker:
-    - image: cimg/openjdk:11.0
+    - image: cimg/openjdk:17.0
   deploy-release:
     steps:
     - checkout
     - attach_workspace:
         at: '.'
     - run:
-        command: ./gradlew --info --stacktrace -DreleaseBuild=true publishToSonatype closeAndReleaseSonatypeStagingRepository
+        command: ./gradlew --info --stacktrace -DtestReportsDir=${HOME}/test-results -DreleaseBuild=true publishToSonatype closeAndReleaseSonatypeStagingRepository
     - persist_to_workspace:
         root: '.'
         paths:
         - pkl-cli/build/executable/
-    - run:
-        command: |-
-          mkdir ~/test-results/
-          find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/test-results/ \;
-        name: Gather test results
-        when: always
     - store_test_results:
         path: ~/test-results
     environment:
       LANG: en_US.UTF-8
     docker:
-    - image: cimg/openjdk:11.0
+    - image: cimg/openjdk:17.0
   github-release:
     steps:
     - attach_workspace:
@@ -718,14 +671,6 @@ jobs:
         name: Publish release on GitHub
     docker:
     - image: maniator/gh:v2.40.1
-  check-patch-file:
-    steps:
-    - checkout
-    - run:
-        command: git apply --reject patches/graalVm23.patch
-    resource_class: small
-    docker:
-    - image: cimg/base:current
   trigger-docsite-build:
     steps:
     - run:
@@ -759,13 +704,13 @@ workflows:
         type: approval
     - pr-approval/authenticate:
         context: pkl-pr-approval
-    - gradle-check-jdk11:
-        requires:
-        - hold
     - gradle-check-jdk17:
         requires:
         - hold
-    - check-patch-file:
+    - gradle-check-jdk21:
+        requires:
+        - hold
+    - gradle-check-jdk17-windows:
         requires:
         - hold
     when:
@@ -774,26 +719,30 @@ workflows:
         pattern: ^pull/\d+(/head)?$
   main:
     jobs:
-    - gradle-check-jdk11
     - gradle-check-jdk17
-    - check-patch-file
+    - gradle-check-jdk21
+    - gradle-check-jdk17-windows
     - bench
+    - gradle-compatibility
     - pkl-cli-macOS-amd64-snapshot
     - pkl-cli-linux-amd64-snapshot
     - pkl-cli-macOS-aarch64-snapshot
     - pkl-cli-linux-aarch64-snapshot
     - pkl-cli-linux-alpine-amd64-snapshot
+    - pkl-cli-windows-amd64-snapshot
     - deploy-snapshot:
         requires:
-        - gradle-check-jdk11
         - gradle-check-jdk17
-        - check-patch-file
+        - gradle-check-jdk21
+        - gradle-check-jdk17-windows
         - bench
+        - gradle-compatibility
         - pkl-cli-macOS-amd64-snapshot
         - pkl-cli-linux-amd64-snapshot
         - pkl-cli-macOS-aarch64-snapshot
         - pkl-cli-linux-aarch64-snapshot
         - pkl-cli-linux-alpine-amd64-snapshot
+        - pkl-cli-windows-amd64-snapshot
         context: pkl-maven-release
     - trigger-docsite-build:
         requires:
@@ -806,25 +755,31 @@ workflows:
       - << pipeline.git.branch >>
   release:
     jobs:
-    - gradle-check-jdk11:
-        filters:
-          branches:
-            ignore: /.*/
-          tags:
-            only: /^v?\d+\.\d+\.\d+$/
     - gradle-check-jdk17:
         filters:
           branches:
             ignore: /.*/
           tags:
             only: /^v?\d+\.\d+\.\d+$/
-    - check-patch-file:
+    - gradle-check-jdk21:
+        filters:
+          branches:
+            ignore: /.*/
+          tags:
+            only: /^v?\d+\.\d+\.\d+$/
+    - gradle-check-jdk17-windows:
         filters:
           branches:
             ignore: /.*/
           tags:
             only: /^v?\d+\.\d+\.\d+$/
     - bench:
+        filters:
+          branches:
+            ignore: /.*/
+          tags:
+            only: /^v?\d+\.\d+\.\d+$/
+    - gradle-compatibility:
         filters:
           branches:
             ignore: /.*/
@@ -860,17 +815,25 @@ workflows:
             ignore: /.*/
           tags:
             only: /^v?\d+\.\d+\.\d+$/
+    - pkl-cli-windows-amd64-release:
+        filters:
+          branches:
+            ignore: /.*/
+          tags:
+            only: /^v?\d+\.\d+\.\d+$/
     - github-release:
         requires:
-        - gradle-check-jdk11
         - gradle-check-jdk17
-        - check-patch-file
+        - gradle-check-jdk21
+        - gradle-check-jdk17-windows
         - bench
+        - gradle-compatibility
         - pkl-cli-macOS-amd64-release
         - pkl-cli-linux-amd64-release
         - pkl-cli-macOS-aarch64-release
         - pkl-cli-linux-aarch64-release
         - pkl-cli-linux-alpine-amd64-release
+        - pkl-cli-windows-amd64-release
         context: pkl-github-release
         filters:
           branches:
@@ -896,3 +859,20 @@ workflows:
             ignore: /.*/
           tags:
             only: /^v?\d+\.\d+\.\d+$/
+  release-branch:
+    jobs:
+    - gradle-check-jdk17
+    - gradle-check-jdk21
+    - gradle-check-jdk17-windows
+    - bench
+    - gradle-compatibility
+    - pkl-cli-macOS-amd64-release
+    - pkl-cli-linux-amd64-release
+    - pkl-cli-macOS-aarch64-release
+    - pkl-cli-linux-aarch64-release
+    - pkl-cli-linux-alpine-amd64-release
+    - pkl-cli-windows-amd64-release
+    when:
+      matches:
+        value: << pipeline.git.branch >>
+        pattern: ^release/\d+\.\d+$

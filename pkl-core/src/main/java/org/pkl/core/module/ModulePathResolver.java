@@ -15,7 +15,6 @@
  */
 package org.pkl.core.module;
 
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -31,6 +30,7 @@ import java.util.Map;
 import javax.annotation.concurrent.GuardedBy;
 import org.pkl.core.module.PathElement.TreePathElement;
 import org.pkl.core.runtime.FileSystemManager;
+import org.pkl.core.util.IoUtils;
 import org.pkl.core.util.LateInit;
 
 /**
@@ -39,7 +39,7 @@ import org.pkl.core.util.LateInit;
  * <p>NOTE: Do not initialize two resolvers for the same jar or zip file. Instead, share the same
  * resolver for that jar or zip file.
  */
-public class ModulePathResolver implements AutoCloseable {
+public final class ModulePathResolver implements AutoCloseable {
   private final Iterable<Path> modulePath;
 
   private final Object lock = new Object();
@@ -153,8 +153,8 @@ public class ModulePathResolver implements AutoCloseable {
       // in case of duplicate path, first entry wins (cf. class loader)
       stream.forEach(
           (path) -> {
-            var relativized = basePath.relativize(path);
-            fileCache.putIfAbsent(relativized.toString(), path);
+            var relativized = IoUtils.relativize(path, basePath);
+            fileCache.putIfAbsent(IoUtils.toNormalizedPathString(relativized), path);
             var element = cachedPathElementRoot;
             for (var i = 0; i < relativized.getNameCount(); i++) {
               var name = relativized.getName(i).toString();
@@ -171,7 +171,7 @@ public class ModulePathResolver implements AutoCloseable {
     if (path.endsWith(".jar") || path.endsWith(".zip")) return true;
 
     byte[] buffer;
-    try (var fis = new FileInputStream(path.toFile())) {
+    try (var fis = Files.newInputStream(path)) {
       buffer = fis.readNBytes(39);
     } catch (IOException e) {
       return false;

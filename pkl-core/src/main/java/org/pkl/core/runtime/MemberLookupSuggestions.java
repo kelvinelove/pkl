@@ -24,7 +24,7 @@ import org.pkl.core.util.EconomicMaps;
 import org.pkl.core.util.Nullable;
 import org.pkl.core.util.StringSimilarity;
 
-public class MemberLookupSuggestions {
+public final class MemberLookupSuggestions {
   private static final StringSimilarity STRING_SIMILARITY = new StringSimilarity();
   // 0.77 is just about low enough to consider two three-character
   // names that differ in their first character similar
@@ -144,9 +144,7 @@ public class MemberLookupSuggestions {
     @Override
     public boolean equals(@Nullable Object obj) {
       if (this == obj) return true;
-      if (!(obj instanceof Candidate)) return false;
-
-      var other = (Candidate) obj;
+      if (!(obj instanceof Candidate other)) return false;
       // member lookup is name rather than signature based (but distinguishes kind)
       return kind == other.kind && name.equals(other.name);
     }

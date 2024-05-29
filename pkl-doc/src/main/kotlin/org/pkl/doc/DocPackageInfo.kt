@@ -67,7 +67,7 @@ data class DocPackageInfo(
   /**
    * The overview documentation for this package.
    *
-   * Supports the same Morkdown syntax as Pkldoc comments. By default, only the first paragraph is
+   * Supports the same Markdown syntax as Pkldoc comments. By default, only the first paragraph is
    * displayed.
    */
   val overview: String?,
@@ -160,19 +160,15 @@ data class DocPackageInfo(
     when (importUri) {
       "pkl:/" -> "pkl:${moduleName.substring(4)}".toUri()
       else -> {
-        val path =
-          getModulePath(moduleName, moduleNamePrefix)
-            .split("/")
-            .map { it.uriEncoded }
-            .joinToString("/") { it } + ".pkl"
-        URI(importUri).resolve(path)
+        val path = getModulePath(moduleName, moduleNamePrefix).uriEncoded + ".pkl"
+        URI(importUri + path)
       }
     }
 
-  internal fun getModuleSourceCode(moduleName: String): String? {
-    val path = "/" + getModulePath(moduleName, moduleNamePrefix) + ".pkl"
+  internal fun getModuleSourceCode(moduleName: String): URI? {
+    val path = "/" + getModulePath(moduleName, moduleNamePrefix).uriEncoded + ".pkl"
     // assumption: the fragment is only used for line numbers
-    return sourceCodeUrlScheme?.replace("%{path}", path)?.substringBefore('#')
+    return sourceCodeUrlScheme?.replace("%{path}", path)?.substringBefore('#')?.let(URI::create)
   }
 
   /** Information about a depended-on package. */
@@ -180,7 +176,7 @@ data class DocPackageInfo(
     /** The name of the depended-on package. */
     val name: String,
 
-    /** The URI of the dependend-upon package, if any. */
+    /** The URI of the depended-upon package, if any. */
     val uri: @Contextual URI?,
 
     /** The version of the depended-on package. */
@@ -207,9 +203,9 @@ data class DocPackageInfo(
       when {
         !moduleName.startsWith(prefix) -> null
         else -> {
-          val modulePath = moduleName.substring(prefix.length).replace('.', '/')
+          val modulePath = moduleName.substring(prefix.length).replace('.', '/').pathEncoded
           if (documentation == null) {
-            "$name/$version/$modulePath/index.html".toUri()
+            "${name.pathEncoded}/$version/$modulePath/index.html".toUri()
           } else {
             documentation.resolve("$modulePath/index.html")
           }

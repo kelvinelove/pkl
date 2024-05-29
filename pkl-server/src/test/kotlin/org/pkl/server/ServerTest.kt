@@ -295,6 +295,43 @@ class ServerTest {
   }
 
   @Test
+  fun `glob resources -- null pathElements and null error`() {
+    val reader = ResourceReaderSpec(scheme = "bird", hasHierarchicalUris = true, isGlobbable = true)
+    val evaluatorId = client.sendCreateEvaluatorRequest(resourceReaders = listOf(reader))
+    client.send(
+      EvaluateRequest(
+        requestId = 1,
+        evaluatorId = evaluatorId,
+        moduleUri = URI("repl:text"),
+        moduleText =
+          """
+        res = read*("bird:/**.txt").keys
+      """
+            .trimIndent(),
+        expr = "res"
+      )
+    )
+    val listResourcesRequest = client.receive<ListResourcesRequest>()
+    client.send(
+      ListResourcesResponse(
+        requestId = listResourcesRequest.requestId,
+        evaluatorId = listResourcesRequest.evaluatorId,
+        pathElements = null,
+        error = null
+      )
+    )
+    val evaluateResponse = client.receive<EvaluateResponse>()
+    assertThat(evaluateResponse.result!!.debugYaml)
+      .isEqualTo(
+        """
+        - 6
+        - []
+        """
+          .trimIndent()
+      )
+  }
+
+  @Test
   fun `glob resource error`() {
     val reader = ResourceReaderSpec(scheme = "bird", hasHierarchicalUris = true, isGlobbable = true)
     val evaluatorId = client.sendCreateEvaluatorRequest(resourceReaders = listOf(reader))
@@ -500,6 +537,47 @@ class ServerTest {
         - bird:/birds/pigeon.pkl
         - bird:/majesticBirds/barnOwl.pkl
         - bird:/majesticBirds/elfOwl.pkl
+    """
+          .trimIndent()
+      )
+  }
+
+  @Test
+  fun `glob module -- null pathElements and null error`() {
+    val reader =
+      ModuleReaderSpec(
+        scheme = "bird",
+        hasHierarchicalUris = true,
+        isLocal = true,
+        isGlobbable = true
+      )
+    val evaluatorId = client.sendCreateEvaluatorRequest(moduleReaders = listOf(reader))
+
+    client.send(
+      EvaluateRequest(
+        requestId = 1,
+        evaluatorId = evaluatorId,
+        moduleUri = URI("repl:text"),
+        moduleText = """res = import*("bird:/**.pkl").keys""",
+        expr = "res"
+      )
+    )
+    val listModulesMsg = client.receive<ListModulesRequest>()
+    client.send(
+      ListModulesResponse(
+        requestId = listModulesMsg.requestId,
+        evaluatorId = evaluatorId,
+        pathElements = null,
+        error = null
+      )
+    )
+
+    val evaluateResponse = client.receive<EvaluateResponse>()
+    assertThat(evaluateResponse.result!!.debugRendering)
+      .isEqualTo(
+        """
+      - 6
+      - []
     """
           .trimIndent()
       )
@@ -849,9 +927,9 @@ class ServerTest {
       
       package {
         name = "lib"
-        baseUri = "package://localhost:12110/lib"
+        baseUri = "package://localhost:0/lib"
         version = "5.0.0"
-        packageZipUrl = "https://localhost:12110/lib.zip"
+        packageZipUrl = "https://localhost:0/lib.zip"
       }
     """
           .trimIndent()
@@ -880,23 +958,23 @@ class ServerTest {
       {
         "schemaVersion": 1,
         "resolvedDependencies": {
-          "package://localhost:12110/birds@0": {
+          "package://localhost:0/birds@0": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/birds@0.5.0",
+            "uri": "projectpackage://localhost:0/birds@0.5.0",
             "checksums": {
               "sha256": "${dollar}skipChecksumVerification"
             }
           },
-          "package://localhost:12110/fruit@1": {
+          "package://localhost:0/fruit@1": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/fruit@1.0.5",
+            "uri": "projectpackage://localhost:0/fruit@1.0.5",
             "checksums": {
               "sha256": "${dollar}skipChecksumVerification"
             }
           },
-          "package://localhost:12110/lib@5": {
+          "package://localhost:0/lib@5": {
             "type": "local",
-            "uri": "projectpackage://localhost:12110/lib@5.0.0",
+            "uri": "projectpackage://localhost:0/lib@5.0.0",
             "path": "../lib"
           }
         }
@@ -915,11 +993,11 @@ class ServerTest {
             dependencies =
               mapOf(
                 "birds" to
-                  RemoteDependency(packageUri = URI("package://localhost:12110/birds@0.5.0"), null),
+                  RemoteDependency(packageUri = URI("package://localhost:0/birds@0.5.0"), null),
                 "lib" to
                   Project(
                     projectFileUri = libDir.toUri().resolve("PklProject"),
-                    packageUri = URI("package://localhost:12110/lib@5.0.0"),
+                    packageUri = URI("package://localhost:0/lib@5.0.0"),
                     dependencies = emptyMap()
                   )
               )

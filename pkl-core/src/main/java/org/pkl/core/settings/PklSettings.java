@@ -23,7 +23,6 @@ import org.pkl.core.*;
 import org.pkl.core.module.ModuleKeyFactories;
 import org.pkl.core.resource.ResourceReaders;
 import org.pkl.core.runtime.VmEvalException;
-import org.pkl.core.runtime.VmExceptionBuilder;
 import org.pkl.core.util.IoUtils;
 import org.pkl.core.util.Nullable;
 
@@ -73,23 +72,16 @@ public final class PklSettings {
             .addResourceReader(ResourceReaders.environmentVariable())
             .addEnvironmentVariables(System.getenv())
             .build()) {
-      var module = evaluator.evaluate(moduleSource);
-      return parseSettings(module, moduleSource);
+      var module = evaluator.evaluateOutputValueAs(moduleSource, PClassInfo.Settings);
+      return parseSettings(module);
     }
   }
 
-  private static PklSettings parseSettings(PModule module, ModuleSource location)
-      throws VmEvalException {
+  private static PklSettings parseSettings(PObject module) throws VmEvalException {
     // can't use object mapping in pkl-core, so map manually
-    var editor = module.getPropertyOrNull("editor");
-    if (!(editor instanceof PObject)) {
-      throw new VmExceptionBuilder().evalError("invalidSettingsFile", location.getUri()).build();
-    }
-    var urlScheme = ((PObject) editor).getPropertyOrNull("urlScheme");
-    if (!(urlScheme instanceof String)) {
-      throw new VmExceptionBuilder().evalError("invalidSettingsFile", location.getUri()).build();
-    }
-    return new PklSettings(new Editor((String) urlScheme));
+    var editor = (PObject) module.getProperty("editor");
+    var urlScheme = (String) editor.getProperty("urlScheme");
+    return new PklSettings(new Editor(urlScheme));
   }
 
   /** Returns the editor for viewing and editing Pkl files. */

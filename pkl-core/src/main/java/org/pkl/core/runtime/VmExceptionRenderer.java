@@ -24,7 +24,7 @@ import org.pkl.core.util.ErrorMessages;
 import org.pkl.core.util.Nullable;
 import org.pkl.core.util.StringBuilderWriter;
 
-public class VmExceptionRenderer {
+public final class VmExceptionRenderer {
   private final @Nullable StackTraceRenderer stackTraceRenderer;
 
   /**
@@ -43,8 +43,8 @@ public class VmExceptionRenderer {
   }
 
   private void render(VmException exception, StringBuilder builder) {
-    if (exception instanceof VmBugException) {
-      renderBugException((VmBugException) exception, builder);
+    if (exception instanceof VmBugException bugException) {
+      renderBugException(bugException, builder);
     } else {
       renderException(exception, builder);
     }

@@ -25,7 +25,7 @@ import org.pkl.core.util.EconomicMaps;
 import org.pkl.core.util.Nullable;
 
 public class PathElement {
-  public static Comparator<PathElement> comparator =
+  public static final Comparator<PathElement> comparator =
       (o1, o2) -> {
         if (o1.isDirectory && !o2.isDirectory) {
           return 1;
@@ -64,15 +64,10 @@ public class PathElement {
   }
 
   @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof PathElement)) {
-      return false;
-    }
-    PathElement that = (PathElement) o;
-    return isDirectory == that.isDirectory && name.equals(that.name);
+  public boolean equals(Object obj) {
+    if (this == obj) return true;
+    if (!(obj instanceof PathElement other)) return false;
+    return isDirectory == other.isDirectory && name.equals(other.name);
   }
 
   @Override
@@ -85,7 +80,7 @@ public class PathElement {
     return "PathElement{" + "name='" + name + '\'' + ", isDirectory=" + isDirectory + '}';
   }
 
-  public static class TreePathElement extends PathElement {
+  public static final class TreePathElement extends PathElement {
     private final EconomicMap<String, TreePathElement> children = EconomicMaps.create();
 
     public TreePathElement(String name, boolean isDirectory) {

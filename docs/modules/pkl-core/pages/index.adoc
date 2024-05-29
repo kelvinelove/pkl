@@ -22,7 +22,7 @@ The library can also be used to embed Pkl in Java libraries and applications.
 == Installation
 
 The _pkl-core_ library is available {uri-pkl-core-maven-module}[from Maven Central].
-It requires Java 11 or higher.
+It requires Java 17 or higher.
 
 === Gradle
 
@@ -30,6 +30,25 @@ To use the library in a Gradle project, declare the following dependency:
 
 [tabs]
 ====
+Kotlin::
++
+.build.gradle.kts
+[source,kotlin,subs="+attributes"]
+----
+dependencies {
+  implementation("org.pkl-lang:pkl-core:{pkl-artifact-version}")
+}
+
+repositories {
+ifdef::is-release-version[]
+  mavenCentral()
+endif::[]
+ifndef::is-release-version[]
+  maven(url = "{uri-sonatype}")
+endif::[]
+}
+----
+
 Groovy::
 +
 .build.gradle
@@ -45,25 +64,6 @@ ifdef::is-release-version[]
 endif::[]
 ifndef::is-release-version[]
   maven { url "{uri-sonatype}" }
-endif::[]
-}
-----
-
-Kotlin::
-+
-.build.gradle.kts
-[source,kotlin,subs="+attributes"]
-----
-dependencies {
-  implementation("org.pkl-lang:pkl-core:{pkl-artifact-version}")
-}
-
-repositories {
-ifdef::is-release-version[]
-  mavenCentral()
-endif::[]
-ifndef::is-release-version[]
-  maven { url = uri("{uri-sonatype}") }
 endif::[]
 }
 ----

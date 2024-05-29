@@ -22,6 +22,7 @@ import java.security.KeyStore
 import java.util.concurrent.Executors
 import javax.net.ssl.KeyManagerFactory
 import javax.net.ssl.SSLContext
+import kotlin.io.path.inputStream
 import kotlin.io.path.isRegularFile
 import org.pkl.commons.createParentDirectories
 import org.pkl.commons.deleteRecursively
@@ -40,13 +41,24 @@ import org.pkl.commons.deleteRecursively
  *     * `testPort` Gradle property
  *
  *   If the server isn't already running, it is automatically started.
- * 4. Use port `12110` in your test. `HttpClient` will replace this port with the server port.
+ * 4. Use port `0` in your test. `HttpClient` will replace this port with the server port.
  * 4. [Close][close] the server, for example in [AfterAll][org.junit.jupiter.api.AfterAll].
  */
 class PackageServer : AutoCloseable {
   companion object {
+    const val BIRDS_SHA = "bfaf5281613d170a740505cc87561041f4e0cad1f0e6938bf94f7609f9a4673d"
+    const val FRUIT_SHA = "34a15b02346e6acb85da5bd71d8b0738a79008b38a7fc805e5869d9129ad27d2"
+    const val FRUIT_1_1_SHA = "8d982761d182f2185e4180c82190791d9a60c721cb3393bb2e946fab90131e8c"
+
     fun populateCacheDir(cacheDir: Path) {
-      val basePath = cacheDir.resolve("package-1/localhost:$PORT")
+      doPopulateCacheDir(cacheDir.resolve("package-2/localhost(3a)$PORT"))
+    }
+
+    fun populateLegacyCacheDir(cacheDir: Path) {
+      doPopulateCacheDir(cacheDir.resolve("package-1/localhost:$PORT"))
+    }
+
+    private fun doPopulateCacheDir(basePath: Path) {
       basePath.deleteRecursively()
       Files.walk(packagesDir).use { stream ->
         stream.forEach { source ->
@@ -64,28 +76,22 @@ class PackageServer : AutoCloseable {
 
     // Port declared in tests.
     // Modified by RequestRewritingClient if testPort is set.
-    private const val PORT = 12110
+    private const val PORT = 0
 
-    // When tests are run via Gradle (i.e. from ./gradlew check), resources are packaged into a jar.
-    // When run directly in IntelliJ, resources are just directories.
-    private val packagesDir: Path by lazy {
-      val uri = PackageServer::class.java.getResource("packages")!!.toURI()
-      try {
-        Path.of(uri)
-      } catch (e: FileSystemNotFoundException) {
-        FileSystems.newFileSystem(uri, mapOf<String, String>())
-        Path.of(uri)
-      }
-    }
+    private val packagesDir: Path =
+      FileTestUtils.rootProjectDir.resolve("pkl-commons-test/build/test-packages")
 
     private val simpleHttpsConfigurator by lazy {
       val sslContext =
         SSLContext.getInstance("SSL").apply {
           val pass = "password".toCharArray()
-          val keystore = PackageServer::class.java.getResource("/localhost.p12")!!
-          val ks = KeyStore.getInstance("PKCS12").apply { load(keystore.openStream(), pass) }
-          val kmf = KeyManagerFactory.getInstance("SunX509").apply { init(ks, pass) }
-          init(kmf.keyManagers, null, null)
+          val keystore =
+            FileTestUtils.rootProjectDir.resolve("pkl-commons-test/build/keystore/localhost.p12")
+          keystore.inputStream().use { stream ->
+            val ks = KeyStore.getInstance("PKCS12").apply { load(stream, pass) }
+            val kmf = KeyManagerFactory.getInstance("SunX509").apply { init(ks, pass) }
+            init(kmf.keyManagers, null, null)
+          }
         }
       val engine = sslContext.createSSLEngine()
       object : HttpsConfigurator(sslContext) {
@@ -131,11 +137,23 @@ class PackageServer : AutoCloseable {
       return@HttpHandler
     }
     val path = exchange.requestURI.path
+    if (path.startsWith("/HTTP301/")) {
+      exchange.responseHeaders.add("Location", path.removePrefix("/HTTP301"))
+      exchange.sendResponseHeaders(301, -1)
+      exchange.close()
+      return@HttpHandler
+    }
+    if (path.startsWith("/HTTP307/")) {
+      exchange.responseHeaders.add("Location", path.removePrefix("/HTTP307"))
+      exchange.sendResponseHeaders(307, -1)
+      exchange.close()
+      return@HttpHandler
+    }
     val localPath =
       if (path.endsWith(".zip")) packagesDir.resolve(path.drop(1))
       else packagesDir.resolve("${path.drop(1)}${path}.json")
     if (!Files.exists(localPath)) {
-      exchange.sendResponseHeaders(404, 0)
+      exchange.sendResponseHeaders(404, -1)
       exchange.close()
       return@HttpHandler
     }

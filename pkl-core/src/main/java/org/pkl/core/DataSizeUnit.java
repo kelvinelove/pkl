@@ -21,7 +21,7 @@ import org.pkl.core.util.Nullable;
  * The unit of a {@link DataSize}. In Pkl, data size units are represented as String {@link
  * #getSymbol() symbols}.
  */
-public strictfp enum DataSizeUnit {
+public enum DataSizeUnit {
   BYTES(1, "b"),
   KILOBYTES(1000, "kb"),
   KIBIBYTES(1024, "kib"),
@@ -48,32 +48,20 @@ public strictfp enum DataSizeUnit {
    * exists.
    */
   public static @Nullable DataSizeUnit parse(String symbol) {
-    switch (symbol) {
-      case "b":
-        return BYTES;
-      case "kb":
-        return KILOBYTES;
-      case "kib":
-        return KIBIBYTES;
-      case "mb":
-        return MEGABYTES;
-      case "mib":
-        return MEBIBYTES;
-      case "gb":
-        return GIGABYTES;
-      case "gib":
-        return GIBIBYTES;
-      case "tb":
-        return TERABYTES;
-      case "tib":
-        return TEBIBYTES;
-      case "pb":
-        return PETABYTES;
-      case "pib":
-        return PEBIBYTES;
-      default:
-        return null;
-    }
+    return switch (symbol) {
+      case "b" -> BYTES;
+      case "kb" -> KILOBYTES;
+      case "kib" -> KIBIBYTES;
+      case "mb" -> MEGABYTES;
+      case "mib" -> MEBIBYTES;
+      case "gb" -> GIGABYTES;
+      case "gib" -> GIBIBYTES;
+      case "tb" -> TERABYTES;
+      case "tib" -> TEBIBYTES;
+      case "pb" -> PETABYTES;
+      case "pib" -> PEBIBYTES;
+      default -> null;
+    };
   }
 
   /** Returns the String symbol of this unit. */

@@ -54,14 +54,14 @@ val validatePom by tasks.registering {
     return@registering
   }
   val generatePomFileForLibraryPublication by tasks.existing(GenerateMavenPom::class)
-  val outputFile = file("$buildDir/validatePom") // dummy output to satisfy up-to-date check
+  val outputFile = layout.buildDirectory.file("validatePom") // dummy output to satisfy up-to-date check
 
   dependsOn(generatePomFileForLibraryPublication)
   inputs.file(generatePomFileForLibraryPublication.get().destination)
   outputs.file(outputFile)
 
   doLast {
-    outputFile.delete()
+    outputFile.get().asFile.delete()
 
     val pomFile = generatePomFileForLibraryPublication.get().destination
     assert(pomFile.exists())
@@ -95,12 +95,20 @@ val validatePom by tasks.registering {
       }
     }
 
-    outputFile.writeText("OK")
+    outputFile.get().asFile.writeText("OK")
   }
 }
 
 tasks.publish {
   dependsOn(validatePom)
+}
+
+// Workaround for maven publish plugin not setting up dependencies correctly.
+// Taken from https://github.com/gradle/gradle/issues/26091#issuecomment-1798137734
+val dependsOnTasks = mutableListOf<String>()
+tasks.withType<AbstractPublishToMaven>().configureEach {
+  dependsOnTasks.add(name.replace("publish", "sign").replaceAfter("Publication", ""))
+  dependsOn(dependsOnTasks)
 }
 
 signing {

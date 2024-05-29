@@ -32,7 +32,7 @@ import org.pkl.core.util.MutableBoolean;
 import org.pkl.core.util.MutableReference;
 
 /** Runs test results examples and facts. */
-public class TestRunner {
+public final class TestRunner {
   private static final PklConverter converter = new PklConverter(VmMapping.empty());
   private final boolean overwrite;
   private final StackFrameTransformer stackFrameTransformer;
@@ -263,7 +263,7 @@ public class TestRunner {
                 VmUtils.createSyntheticObjectProperty(Identifier.EXAMPLES, "examples", examples)),
             0);
     var builder = new StringBuilder();
-    new PcfRenderer(builder, "  ", converter, false, false).renderDocument(outputFileContent);
+    new PcfRenderer(builder, "  ", converter, false, true).renderDocument(outputFileContent);
     try {
       Files.writeString(outputFile, builder);
     } catch (IOException e) {

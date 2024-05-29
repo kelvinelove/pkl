@@ -16,18 +16,8 @@
 package org.pkl.core;
 
 import java.io.IOException;
-import org.pkl.core.util.ArrayCharEscaper;
 
 public final class ValueFormatter {
-  private static final ArrayCharEscaper charEscaper =
-      ArrayCharEscaper.builder()
-          .withEscape('\n', "\\n")
-          .withEscape('\r', "\\r")
-          .withEscape('\t', "\\t")
-          .withEscape('"', "\\\"")
-          .withEscape('\\', "\\\\")
-          .build();
-
   private static final ValueFormatter BASIC = new ValueFormatter(false, false);
 
   private static final ValueFormatter WITH_CUSTOM_DELIMITERS = new ValueFormatter(false, true);
@@ -135,31 +125,24 @@ public final class ValueFormatter {
     for (; i < value.length(); i++) {
       var ch = value.charAt(i);
       switch (ch) {
-        case '\n':
-          appendable.append(escapeSequence).append('n');
-          break;
-        case '\r':
-          appendable.append(escapeSequence).append('r');
-          break;
-        case '\t':
-          appendable.append(escapeSequence).append('t');
-          break;
-        case '\\':
+        case '\n' -> appendable.append(escapeSequence).append('n');
+        case '\r' -> appendable.append(escapeSequence).append('r');
+        case '\t' -> appendable.append(escapeSequence).append('t');
+        case '\\' -> {
           if (useCustomStringDelimiters) {
             appendable.append(ch);
           } else {
             appendable.append("\\\\");
           }
-          break;
-        case '"':
+        }
+        case '"' -> {
           if (useCustomStringDelimiters) {
             appendable.append(ch);
           } else {
             appendable.append("\\\"");
           }
-          break;
-        default:
-          appendable.append(ch);
+        }
+        default -> appendable.append(ch);
       }
     }
 
@@ -177,27 +160,27 @@ public final class ValueFormatter {
     for (var i = 0; i < value.length(); i++) {
       var ch = value.charAt(i);
       switch (ch) {
-        case '\n':
+        case '\n' -> {
           appendable.append('\n').append(lineIndent);
           consecutiveQuotes = 0;
-          break;
-        case '\r':
+        }
+        case '\r' -> {
           appendable.append(escapeSequence).append('r');
           consecutiveQuotes = 0;
-          break;
-        case '\t':
+        }
+        case '\t' -> {
           appendable.append(escapeSequence).append('t');
           consecutiveQuotes = 0;
-          break;
-        case '\\':
+        }
+        case '\\' -> {
           if (useCustomStringDelimiters) {
             appendable.append(ch);
           } else {
             appendable.append("\\\\");
           }
           consecutiveQuotes = 0;
-          break;
-        case '"':
+        }
+        case '"' -> {
           if (consecutiveQuotes == 2 && !useCustomStringDelimiters) {
             appendable.append("\\\"");
             consecutiveQuotes = 0;
@@ -205,10 +188,11 @@ public final class ValueFormatter {
             appendable.append('"');
             consecutiveQuotes += 1;
           }
-          break;
-        default:
+        }
+        default -> {
           appendable.append(ch);
           consecutiveQuotes = 0;
+        }
       }
     }
 
@@ -272,12 +256,12 @@ public final class ValueFormatter {
       for (var i = 0; i < value.length(); i++) {
         var ch = value.charAt(i);
         switch (ch) {
-          case '\\':
+          case '\\' -> {
             currentPoundContext = PoundContext.BACKSLASH;
             currentPoundCountBackslash = 1;
             poundCountBackslash = Math.max(poundCountBackslash, currentPoundCountBackslash);
-            break;
-          case '"':
+          }
+          case '"' -> {
             consecutiveQuoteCount += 1;
             if (consecutiveQuoteCount < 3) {
               currentPoundContext = PoundContext.SINGLELINE_QUOTE;
@@ -289,34 +273,36 @@ public final class ValueFormatter {
               poundCountMultilineQuote =
                   Math.max(poundCountMultilineQuote, currentPoundCountMultilineQuote);
             }
-            break;
-          case '#':
+          }
+          case '#' -> {
             consecutiveQuoteCount = 0;
             switch (currentPoundContext) {
-              case SINGLELINE_QUOTE:
+              case SINGLELINE_QUOTE -> {
                 currentPoundCountSingleQuote += 1;
                 poundCountSingleQuote =
                     Math.max(poundCountSingleQuote, currentPoundCountSingleQuote);
-                break;
-              case MULTILINE_QUOTE:
+              }
+              case MULTILINE_QUOTE -> {
                 currentPoundCountMultilineQuote += 1;
                 poundCountMultilineQuote =
                     Math.max(poundCountMultilineQuote, currentPoundCountMultilineQuote);
-                break;
-              case BACKSLASH:
+              }
+              case BACKSLASH -> {
                 currentPoundCountBackslash += 1;
                 poundCountBackslash = Math.max(poundCountBackslash, currentPoundCountBackslash);
-                break;
-              default:
-                break;
+              }
+              default -> {}
             }
-            break;
-          case '\n':
+          }
+          case '\n' -> {
             isMultiline = true;
-          default:
             consecutiveQuoteCount = 0;
             currentPoundContext = PoundContext.OTHER;
-            break;
+          }
+          default -> {
+            consecutiveQuoteCount = 0;
+            currentPoundContext = PoundContext.OTHER;
+          }
         }
       }
       return new StringFacts(

@@ -20,7 +20,7 @@ import javax.lang.model.type.TypeMirror
  * - Generated Truffle node classes for stdlib members.
  *   These classes are located in subpackages of `org.pkl.core.stdlib`
  *   and identified via their `@GeneratedBy` annotations.
- * - `@PklName` annotations on hand-written node classes from which Truffle node classes are generated.
+ * - `@PklName` annotations on handwritten node classes from which Truffle node classes are generated.
  */
 class MemberRegistryGenerator : AbstractProcessor() {
   private val truffleNodeClassSuffix = "NodeGen"
@@ -42,7 +42,7 @@ class MemberRegistryGenerator : AbstractProcessor() {
 
   override fun getSupportedAnnotationTypes(): Set<String> = setOf(GeneratedBy::class.java.name)
 
-  override fun getSupportedSourceVersion(): SourceVersion = SourceVersion.RELEASE_11
+  override fun getSupportedSourceVersion(): SourceVersion = SourceVersion.RELEASE_17
 
   override fun process(annotations: Set<TypeElement>, roundEnv: RoundEnvironment): Boolean {
     if (annotations.isEmpty()) return true

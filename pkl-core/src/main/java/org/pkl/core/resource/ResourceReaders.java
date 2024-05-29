@@ -304,8 +304,7 @@ public final class ResourceReaders {
       }
 
       try {
-        var url = IoUtils.toUrl(uri);
-        var content = IoUtils.readBytes(url);
+        var content = IoUtils.readBytes(uri);
         return Optional.of(new Resource(uri, content));
       } catch (FileNotFoundException e) {
         return Optional.empty();
@@ -557,11 +556,11 @@ public final class ResourceReaders {
     }
 
     private @Nullable Path getLocalPath(Dependency dependency, PackageAssetUri packageAssetUri) {
-      if (!(dependency instanceof LocalDependency)) {
+      if (!(dependency instanceof LocalDependency localDependency)) {
         return null;
       }
-      return ((LocalDependency) dependency)
-          .resolveAssetPath(getProjectDepsResolver().getProjectDir(), packageAssetUri);
+      return localDependency.resolveAssetPath(
+          getProjectDepsResolver().getProjectDir(), packageAssetUri);
     }
   }
 

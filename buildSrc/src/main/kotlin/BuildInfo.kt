@@ -4,15 +4,12 @@ import java.io.File
 import org.gradle.api.Project
 import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
-import org.gradle.api.artifacts.VersionConstraint
 import org.gradle.kotlin.dsl.getByType
 
 // `buildInfo` in main build scripts
 // `project.extensions.getByType<BuildInfo>()` in precompiled script plugins
 open class BuildInfo(project: Project) {
-  val self = this
-
-  inner class GraalVm {
+  inner class GraalVm(val arch: String) {
     val homeDir: String by lazy {
       System.getenv("GRAALVM_HOME") ?: "${System.getProperty("user.home")}/.graalvm"
     }
@@ -21,47 +18,27 @@ open class BuildInfo(project: Project) {
       libs.findVersion("graalVm").get().toString()
     }
 
-    val isGraal22: Boolean by lazy {
-      version.startsWith("22")
-    }
-
-    val arch by lazy {
-      if (os.isMacOsX && isGraal22) {
-        "amd64"
-      } else {
-        self.arch
-      }
+    val graalVmJdkVersion: String by lazy {
+      libs.findVersion("graalVmJdkVersion").get().toString()
     }
 
     val osName: String by lazy {
       when {
-        os.isMacOsX && isGraal22 -> "darwin"
         os.isMacOsX -> "macos"
         os.isLinux -> "linux"
+        os.isWindows -> "windows"
         else -> throw RuntimeException("${os.familyName} is not supported.")
       }
     }
 
     val baseName: String by lazy {
-      if (graalVm.isGraal22) {
-        "graalvm-ce-java11-${osName}-${arch}-${version}"
-      } else {
-        "graalvm-jdk-${graalVM23JdkVersion}_${osName}-${arch}_bin"
-      }
-    }
-
-    val graalVM23JdkVersion: String by lazy {
-      libs.findVersion("graalVM23JdkVersion").get().requiredVersion
+      "graalvm-jdk-${graalVmJdkVersion}_${osName}-${arch}_bin"
     }
 
     val downloadUrl: String by lazy {
-      if (isGraal22) {
-        "https://github.com/graalvm/graalvm-ce-builds/releases/download/vm-" +
-          "${version}/$baseName.tar.gz"
-      } else {
-        val jdkMajor = graalVM23JdkVersion.takeWhile { it != '.' }
-        "https://download.oracle.com/graalvm/$jdkMajor/archive/$baseName.tar.gz"
-      }
+      val jdkMajor = graalVmJdkVersion.takeWhile { it != '.' }
+      val extension = if (os.isWindows) "zip" else "tar.gz"
+      "https://download.oracle.com/graalvm/$jdkMajor/archive/$baseName.$extension"
     }
 
     val installDir: File by lazy {
@@ -85,7 +62,9 @@ open class BuildInfo(project: Project) {
     }
   }
 
-  val graalVm: GraalVm = GraalVm()
+  val graalVmAarch64: GraalVm = GraalVm("aarch64")
+
+  val graalVmAmd64: GraalVm = GraalVm("x64")
 
   val isCiBuild: Boolean by lazy {
     System.getenv("CI") != null
@@ -108,9 +87,14 @@ open class BuildInfo(project: Project) {
   val commitId: String by lazy {
     // only run command once per build invocation
     if (project === project.rootProject) {
-      Runtime.getRuntime()
-        .exec("git rev-parse --short HEAD", arrayOf(), project.rootDir)
-        .inputStream.reader().readText().trim()
+      val process = ProcessBuilder()
+        .command("git", "rev-parse", "--short", "HEAD")
+        .directory(project.rootDir)
+        .start()
+      process.waitFor().also { exitCode ->
+        if (exitCode == -1) throw RuntimeException(process.errorStream.reader().readText())
+      }
+      process.inputStream.reader().readText().trim()
     } else {
       project.rootProject.extensions.getByType(BuildInfo::class.java).commitId
     }

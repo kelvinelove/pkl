@@ -31,6 +31,7 @@ public final class Platform {
     var pklVersion = Release.current().version().toString();
     var osName = System.getProperty("os.name");
     if (osName.equals("Mac OS X")) osName = "macOS";
+    if (osName.contains("Windows")) osName = "Windows";
     var osVersion = System.getProperty("os.version");
     var architecture = System.getProperty("os.arch");
 
@@ -101,9 +102,7 @@ public final class Platform {
   @Override
   public boolean equals(Object obj) {
     if (this == obj) return true;
-    if (!(obj instanceof Platform)) return false;
-
-    var other = (Platform) obj;
+    if (!(obj instanceof Platform other)) return false;
     return language.equals(other.language)
         && runtime.equals(other.runtime)
         && virtualMachine.equals(other.virtualMachine)
@@ -133,9 +132,7 @@ public final class Platform {
     @Override
     public boolean equals(Object obj) {
       if (this == obj) return true;
-      if (!(obj instanceof Language)) return false;
-
-      var other = (Language) obj;
+      if (!(obj instanceof Language other)) return false;
       return version.equals(other.version);
     }
 
@@ -169,9 +166,7 @@ public final class Platform {
     @Override
     public boolean equals(Object obj) {
       if (this == obj) return true;
-      if (!(obj instanceof Runtime)) return false;
-
-      var other = (Runtime) obj;
+      if (!(obj instanceof Runtime other)) return false;
       return name.equals(other.name) && version.equals(other.version);
     }
 
@@ -205,9 +200,7 @@ public final class Platform {
     @Override
     public boolean equals(Object obj) {
       if (this == obj) return true;
-      if (!(obj instanceof VirtualMachine)) return false;
-
-      var other = (VirtualMachine) obj;
+      if (!(obj instanceof VirtualMachine other)) return false;
       return name.equals(other.name) && version.equals(other.version);
     }
 
@@ -241,9 +234,7 @@ public final class Platform {
     @Override
     public boolean equals(Object obj) {
       if (this == obj) return true;
-      if (!(obj instanceof OperatingSystem)) return false;
-
-      var other = (OperatingSystem) obj;
+      if (!(obj instanceof OperatingSystem other)) return false;
       return name.equals(other.name) && version.equals(other.version);
     }
 
@@ -270,9 +261,7 @@ public final class Platform {
     @Override
     public boolean equals(Object obj) {
       if (this == obj) return true;
-      if (!(obj instanceof Processor)) return false;
-
-      var other = (Processor) obj;
+      if (!(obj instanceof Processor other)) return false;
       return architecture.equals(other.architecture);
     }
 

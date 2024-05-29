@@ -62,7 +62,7 @@ import org.pkl.gradle.task.TestTask;
 @SuppressWarnings("unused")
 public class PklPlugin implements Plugin<Project> {
 
-  private static final String MIN_GRADLE_VERSION = "7.2";
+  private static final String MIN_GRADLE_VERSION = "8.1";
 
   @LateInit private Project project;
 
@@ -398,7 +398,7 @@ public class PklPlugin implements Plugin<Project> {
               var outputDir = spec.getOutputDir().get().getAsFile();
               module.getGeneratedSourceDirs().add(outputDir);
               if (spec.getSourceSet().get().getName().toLowerCase().contains("test")) {
-                module.setTestSourceDirs(append(module.getTestSourceDirs(), outputDir));
+                module.getTestSources().from(append(module.getTestSources().getFiles(), outputDir));
               } else {
                 module.setSourceDirs(append(module.getSourceDirs(), outputDir));
               }
@@ -458,8 +458,8 @@ public class PklPlugin implements Plugin<Project> {
   private Optional<SourceDirectorySet> getKotlinSourceDirectorySet(SourceSet sourceSet) {
     // First, try loading it as an extension - 1.8+ version of Kotlin plugin does this.
     var kotlinExtension = sourceSet.getExtensions().findByName("kotlin");
-    if (kotlinExtension instanceof SourceDirectorySet) {
-      return Optional.of((SourceDirectorySet) kotlinExtension);
+    if (kotlinExtension instanceof SourceDirectorySet sourceDirSet) {
+      return Optional.of(sourceDirSet);
     }
 
     // Otherwise, try to load it as a convention. First, we attempt to get the convention
@@ -476,8 +476,10 @@ public class PklPlugin implements Plugin<Project> {
     try {
       var getConventionMethod = sourceSet.getClass().getMethod("getConvention");
       var convention = getConventionMethod.invoke(sourceSet);
-      if (convention instanceof Convention) {
-        var kotlinSourceSet = ((Convention) convention).getPlugins().get("kotlin");
+      //noinspection deprecation
+      if (convention instanceof Convention c) {
+        //noinspection deprecation
+        var kotlinSourceSet = c.getPlugins().get("kotlin");
         if (kotlinSourceSet == null) {
           project
               .getLogger()
@@ -490,8 +492,8 @@ public class PklPlugin implements Plugin<Project> {
 
         var getKotlinMethod = kotlinSourceSet.getClass().getMethod("getKotlin");
         var kotlinSourceDirectorySet = getKotlinMethod.invoke(kotlinSourceSet);
-        if (kotlinSourceDirectorySet instanceof SourceDirectorySet) {
-          return Optional.of((SourceDirectorySet) kotlinSourceDirectorySet);
+        if (kotlinSourceDirectorySet instanceof SourceDirectorySet sourceDirSet) {
+          return Optional.of(sourceDirSet);
         }
 
         project

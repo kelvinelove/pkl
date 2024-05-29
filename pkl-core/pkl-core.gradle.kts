@@ -129,7 +129,7 @@ tasks.processResources {
       include("*.pkl") 
       exclude("doc-package-info.pkl")
     }.map { "pkl:" + it.nameWithoutExtension } 
-      .sortedBy { it.toLowerCase() }
+      .sortedBy { it.lowercase() }
     
     filter<ReplaceTokens>("tokens" to mapOf(
         "version" to buildInfo.pklVersion,
@@ -154,9 +154,9 @@ tasks.compileKotlin {
 }
 
 tasks.test {
-  inputs.dir("src/test/files/LanguageSnippetTests/input")
-  inputs.dir("src/test/files/LanguageSnippetTests/input-helper")
-  inputs.dir("src/test/files/LanguageSnippetTests/output")
+  inputs.dir("src/test/files/LanguageSnippetTests/input").withPropertyName("languageSnippetTestsInput").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir("src/test/files/LanguageSnippetTests/input-helper").withPropertyName("languageSnippetTestsInputHelper").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir("src/test/files/LanguageSnippetTests/output").withPropertyName("languageSnippetTestsOutput").withPathSensitivity(PathSensitivity.RELATIVE)
 
   useJUnitPlatform {
     excludeEngines("MacAmd64LanguageSnippetTestsEngine")
@@ -168,9 +168,9 @@ tasks.test {
 }
 
 val testJavaExecutable by tasks.registering(Test::class) {
-  inputs.dir("src/test/files/LanguageSnippetTests/input")
-  inputs.dir("src/test/files/LanguageSnippetTests/input-helper")
-  inputs.dir("src/test/files/LanguageSnippetTests/output")
+  inputs.dir("src/test/files/LanguageSnippetTests/input").withPropertyName("languageSnippetTestsInput").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir("src/test/files/LanguageSnippetTests/input-helper").withPropertyName("languageSnippetTestsInputHelper").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir("src/test/files/LanguageSnippetTests/output").withPropertyName("languageSnippetTestsOutput").withPathSensitivity(PathSensitivity.RELATIVE)
 
   testClassesDirs = files(tasks.test.get().testClassesDirs)
   classpath =
@@ -193,12 +193,11 @@ tasks.check {
 }
 
 val testMacExecutableAmd64 by tasks.registering(Test::class) {
-  enabled = buildInfo.os.isMacOsX && buildInfo.graalVm.isGraal22
   dependsOn(":pkl-cli:macExecutableAmd64")
 
-  inputs.dir("src/test/files/LanguageSnippetTests/input")
-  inputs.dir("src/test/files/LanguageSnippetTests/input-helper")
-  inputs.dir("src/test/files/LanguageSnippetTests/output")
+  inputs.dir("src/test/files/LanguageSnippetTests/input").withPropertyName("languageSnippetTestsInput").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir("src/test/files/LanguageSnippetTests/input-helper").withPropertyName("languageSnippetTestsInputHelper").withPathSensitivity(PathSensitivity.RELATIVE)
+  inputs.dir("src/test/files/LanguageSnippetTests/output").withPropertyName("languageSnippetTestsOutput").withPathSensitivity(PathSensitivity.RELATIVE)
 
   testClassesDirs = files(tasks.test.get().testClassesDirs)
   classpath = tasks.test.get().classpath
@@ -209,7 +208,6 @@ val testMacExecutableAmd64 by tasks.registering(Test::class) {
 }
 
 val testMacExecutableAarch64 by tasks.registering(Test::class) {
-  enabled = buildInfo.os.isMacOsX && !buildInfo.graalVm.isGraal22
   dependsOn(":pkl-cli:macExecutableAarch64")
 
   inputs.dir("src/test/files/LanguageSnippetTests/input")
@@ -225,7 +223,6 @@ val testMacExecutableAarch64 by tasks.registering(Test::class) {
 }
 
 val testLinuxExecutableAmd64 by tasks.registering(Test::class) {
-  enabled = buildInfo.os.isLinux && buildInfo.arch == "amd64"
   dependsOn(":pkl-cli:linuxExecutableAmd64")
 
   inputs.dir("src/test/files/LanguageSnippetTests/input")
@@ -241,7 +238,6 @@ val testLinuxExecutableAmd64 by tasks.registering(Test::class) {
 }
 
 val testLinuxExecutableAarch64 by tasks.registering(Test::class) {
-  enabled = buildInfo.os.isLinux && buildInfo.arch == "aarch64"
   dependsOn(":pkl-cli:linuxExecutableAarch64")
 
   inputs.dir("src/test/files/LanguageSnippetTests/input")
@@ -257,7 +253,6 @@ val testLinuxExecutableAarch64 by tasks.registering(Test::class) {
 }
 
 val testAlpineExecutableAmd64 by tasks.registering(Test::class) {
-  enabled = buildInfo.os.isLinux && buildInfo.arch == "amd64" && buildInfo.hasMuslToolchain
   dependsOn(":pkl-cli:alpineExecutableAmd64")
 
   inputs.dir("src/test/files/LanguageSnippetTests/input")
@@ -272,17 +267,47 @@ val testAlpineExecutableAmd64 by tasks.registering(Test::class) {
   }
 }
 
+val testWindowsExecutableAmd64 by tasks.registering(Test::class) {
+  dependsOn(":pkl-cli:windowsExecutableAmd64")
+
+  inputs.dir("src/test/files/LanguageSnippetTests/input")
+  inputs.dir("src/test/files/LanguageSnippetTests/input-helper")
+  inputs.dir("src/test/files/LanguageSnippetTests/output")
+
+  testClassesDirs = files(tasks.test.get().testClassesDirs)
+  classpath = tasks.test.get().classpath
+
+  useJUnitPlatform {
+    includeEngines("WindowsLanguageSnippetTestsEngine")
+  }
+}
+
 tasks.testNative {
-  dependsOn(testLinuxExecutableAmd64)
-  dependsOn(testLinuxExecutableAarch64)
-  dependsOn(testMacExecutableAmd64)
-  dependsOn(testMacExecutableAarch64)
-  dependsOn(testAlpineExecutableAmd64)
+  when {
+    buildInfo.os.isMacOsX -> {
+      dependsOn(testMacExecutableAmd64)
+      if (buildInfo.arch == "aarch64") {
+        dependsOn(testMacExecutableAarch64)
+      }
+    }
+    buildInfo.os.isLinux && buildInfo.arch == "aarch64" -> {
+      dependsOn(testLinuxExecutableAarch64)
+    }
+    buildInfo.os.isLinux && buildInfo.arch == "amd64" -> {
+      dependsOn(testLinuxExecutableAmd64)
+      if (buildInfo.hasMuslToolchain) {
+        dependsOn(testAlpineExecutableAmd64)
+      }
+    }
+    buildInfo.os.isWindows -> {
+      dependsOn(testWindowsExecutableAmd64)
+    }
+  }
 }
 
 tasks.clean {
   delete("generated/")
-  delete("$buildDir/test-packages")
+  delete(layout.buildDirectory.dir("test-packages"))
 }
 
 spotless {

@@ -15,11 +15,13 @@
 //===----------------------------------------------------------------------===//
 extends "GradleJob.pkl"
 
-import "package://pkg.pkl-lang.org/pkl-pantry/com.circleci.v2@1.0.0#/Config.pkl"
+import "package://pkg.pkl-lang.org/pkl-pantry/com.circleci.v2@1.1.2#/Config.pkl"
 
 name: String = command
 
 command: String
+
+os = "linux"
 
 steps {
   new Config.RunStep {
@@ -32,6 +34,6 @@ steps {
 
 job {
   docker {
-    new { image = "cimg/openjdk:11.0" }
+    new { image = "cimg/openjdk:17.0" }
   }
 }

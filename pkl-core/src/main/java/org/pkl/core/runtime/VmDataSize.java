@@ -26,7 +26,7 @@ import org.pkl.core.util.MathUtils;
 import org.pkl.core.util.Nullable;
 
 @ValueType
-public final strictfp class VmDataSize extends VmValue implements Comparable<VmDataSize> {
+public final class VmDataSize extends VmValue implements Comparable<VmDataSize> {
   private static final Map<Identifier, DataSizeUnit> UNITS =
       Map.ofEntries(
           entry(Identifier.B, DataSizeUnit.BYTES),
@@ -144,9 +144,7 @@ public final strictfp class VmDataSize extends VmValue implements Comparable<VmD
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) return true;
-    if (!(obj instanceof VmDataSize)) return false;
-
-    var other = (VmDataSize) obj;
+    if (!(obj instanceof VmDataSize other)) return false;
     // converting to a fixed unit guarantees that equals() is commutative and consistent with
     // hashCode()
     return convertValueTo(DataSizeUnit.BYTES) == other.convertValueTo(DataSizeUnit.BYTES);

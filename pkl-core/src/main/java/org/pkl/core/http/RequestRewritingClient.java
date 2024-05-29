@@ -90,14 +90,9 @@ final class RequestRewritingClient implements HttpClient {
             publisher -> builder.method(method, publisher),
             () -> {
               switch (method) {
-                case "GET":
-                  builder.GET();
-                  break;
-                case "DELETE":
-                  builder.DELETE();
-                  break;
-                default:
-                  builder.method(method, HttpRequest.BodyPublishers.noBody());
+                case "GET" -> builder.GET();
+                case "DELETE" -> builder.DELETE();
+                default -> builder.method(method, HttpRequest.BodyPublishers.noBody());
               }
             });
 
@@ -105,9 +100,7 @@ final class RequestRewritingClient implements HttpClient {
   }
 
   private URI rewriteUri(URI uri) {
-    // Would be nice to use port 0 instead of 12110,
-    // but this is best done in a separate commit.
-    if (testPort != -1 && uri.getPort() == 12110) {
+    if (testPort != -1 && uri.getPort() == 0) {
       return HttpUtils.setPort(uri, testPort);
     }
     return uri;

@@ -17,6 +17,7 @@ package org.pkl.core;
 
 import static java.util.Map.*;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.net.URI;
 import java.util.*;
@@ -26,8 +27,7 @@ import org.pkl.core.util.Nullable;
 /** Information about a Pkl class and its Java representation. */
 @SuppressWarnings("rawtypes")
 public final class PClassInfo<T> implements Serializable {
-
-  private static final long serialVersionUID = 0L;
+  @Serial private static final long serialVersionUID = 0L;
 
   // Simple name of a module's class.
   // User-facing via `module.getClass()` and error messages.
@@ -37,6 +37,7 @@ public final class PClassInfo<T> implements Serializable {
 
   public static final URI pklBaseUri = URI.create("pkl:base");
   public static final URI pklSemverUri = URI.create("pkl:semver");
+  public static final URI pklSettingsUri = URI.create("pkl:settings");
   public static final URI pklProjectUri = URI.create("pkl:Project");
 
   public static final PClassInfo<Void> Any = pklBaseClassInfo("Any", Void.class);
@@ -79,6 +80,8 @@ public final class PClassInfo<T> implements Serializable {
       new PClassInfo<>("pkl.semver", "Version", PObject.class, pklSemverUri);
   public static final PClassInfo<PObject> Project =
       new PClassInfo<>("pkl.Project", "ModuleClass", PObject.class, pklProjectUri);
+  public static final PClassInfo<PObject> Settings =
+      new PClassInfo<>("pkl.settings", "ModuleClass", PObject.class, pklSettingsUri);
 
   public static final PClassInfo<Object> Unavailable =
       new PClassInfo<>("unavailable", "unavailable", Object.class, URI.create("pkl:unavailable"));
@@ -100,7 +103,7 @@ public final class PClassInfo<T> implements Serializable {
   /** Returns the class info for the given value's class. */
   @SuppressWarnings("unchecked")
   public static <T> PClassInfo<T> forValue(T value) {
-    if (value instanceof Value) return (PClassInfo<T>) ((Value) value).getClassInfo();
+    if (value instanceof Value v) return (PClassInfo<T>) v.getClassInfo();
 
     if (value instanceof String) return (PClassInfo<T>) String;
     if (value instanceof Boolean) return (PClassInfo<T>) Boolean;
@@ -179,9 +182,7 @@ public final class PClassInfo<T> implements Serializable {
 
   public boolean equals(@Nullable Object obj) {
     if (this == obj) return true;
-    if (!(obj instanceof PClassInfo)) return false;
-
-    var other = (PClassInfo<?>) obj;
+    if (!(obj instanceof PClassInfo<?> other)) return false;
     return qualifiedName.equals(other.qualifiedName);
   }
 

@@ -21,7 +21,7 @@ import org.pkl.core.util.LateInit;
 import org.pkl.core.util.Nullable;
 
 /**
- * A semantic version (https://semver.org/spec/v2.0.0.html).
+ * A <a href="https://semver.org/spec/v2.0.0.html">semantic version</a>.
  *
  * <p>This class guarantees that valid semantic version numbers are handled correctly, but does
  * <em>not</em> guarantee that invalid semantic version numbers are rejected.
@@ -194,9 +194,7 @@ public final class Version implements Comparable<Version> {
   @Override
   public boolean equals(@Nullable Object obj) {
     if (this == obj) return true;
-    if (!(obj instanceof Version)) return false;
-
-    var other = (Version) obj;
+    if (!(obj instanceof Version other)) return false;
     return major == other.major
         && minor == other.minor
         && patch == other.patch
@@ -210,8 +208,7 @@ public final class Version implements Comparable<Version> {
 
   @Override
   public String toString() {
-    return ""
-        + major
+    return major
         + "."
         + minor
         + "."

@@ -75,22 +75,25 @@ Consider the following example.
 [source,{pkl}]
 .nestedAmends.pkl
 ----
-woodPigeon {
-  name = "Common wood pigeon"
+stockPigeon {
+  name = "Stock pigeon"
   diet = "Seeds"
   taxonomy {
-    species = "Columba palumbus"
-  }
-}
-
-stockPigeon = (woodPigeon) {
-  name = "Stock pigeon"
-  taxonomy { // <1>
+    kingdom = "Animalia"
+    clade = "Columbimorphae"
+    order = "Columbiformes"
     species = "Columba oenas"
   }
 }
 
-dodo = (stockPigeon) { // <2>
+woodPigeon = (stockPigeon) {
+  name = "Common wood pigeon"
+  taxonomy { // <1>
+    species = "Columba palumbus"
+  }
+}
+
+dodo = (woodPigeon) { // <2>
   name = "Dodo"
   extinct = true // <3>
   taxonomy {
@@ -103,7 +106,7 @@ dodo = (stockPigeon) { // <2>
 <3> New fields can be added to objects when amending.
 
 Notice how you only have to change `taxonomy.species`.
-In this example, `bird.taxonomy` has `kingdom`, `clade`, `order` and `species`.
+In this example, `stockPigeon.taxonomy` has `kingdom`, `clade`, `order` and `species`.
 You are amending `stockPigeon`, to define `woodPigeon`.
 They have the same `taxonomy`, except for `species`.
 This notation says that everything in `taxonomy` should be what it is in the object you are amending (`stockPigeon`), except for `species`, which should be `"Columba palumbus"` .
@@ -111,27 +114,36 @@ This notation says that everything in `taxonomy` should be what it is in the obj
 For the input above, Pkl produces the following output.
 [source,{pkl}]
 ----
-woodPigeon {
-  name = "Common wood pigeon"
-  diet = "Seeds"
-  taxonomy {
-    species = "Columba palumbus"
-  }
-}
 stockPigeon {
   name = "Stock pigeon"
   diet = "Seeds"
   taxonomy {
+    kingdom = "Animalia"
+    clade = "Columbimorphae"
+    order = "Columbiformes"
     species = "Columba oenas"
+  }
+}
+woodPigeon {
+  name = "Common wood pigeon"
+  diet = "Seeds"
+  taxonomy {
+    kingdom = "Animalia"
+    clade = "Columbimorphae"
+    order = "Columbiformes"
+    species = "Columba palumbus"
   }
 }
 dodo {
   name = "Dodo"
   diet = "Seeds"
-  extinct = true
   taxonomy {
+    kingdom = "Animalia"
+    clade = "Columbimorphae"
+    order = "Columbiformes"
     species = "Raphus cucullatus"
   }
+  extinct = true
 }
 ----
 
@@ -284,9 +296,9 @@ This terminology describes the _intended use_ of the module and doesn't imply an
 In other words: just by looking at Pkl code, you can't tell whether it is a template or a "normal" module.
 
 [source,{pkl}]
-.acmecicd.pkl
+.AcmeCICD.pkl
 ----
-module acmecicd
+module AcmeCICD
 
 class Pipeline {
   name: String(nameRequiresBranchName)?
@@ -316,7 +328,7 @@ Next, add a time-out of one minute for your job.
 [source,{pkl}]
 .cicd.pkl
 ----
-amends "acmecicd.pkl"
+amends "AcmeCICD.pkl"
 
 timeout = 1
 ----
@@ -329,7 +341,7 @@ Value: 1 // <3>
 
 225 | timeout: Int(this >= 3)? // <4>
                    ^^^^^^^^^
-at acmecicd#timeout (file:///Users/me/tutorial/acmecicd.pkl, line 8)
+at AcmeCICD#timeout (file:///Users/me/tutorial/AcmeCICD.pkl, line 8)
 
 3 | timeout = 1 // <5>
               ^
@@ -369,7 +381,7 @@ Start off by specifying the name of the pipeline and nothing else.
 [source,{pkl}]
 .cicd.pkl
 ----
-amends "acmecicd.pkl"
+amends "AcmeCICD.pkl"
 
 timeout = 3
 pipelines {
@@ -403,7 +415,7 @@ Pipelines that set a 'name' must also set a 'branchName'.
 
 8 | throw("Pipelines that set a 'name' must also set a 'branchName'.")
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-at acmecicd#Pipeline.nameRequiresBranchName.<function#1> (file:///Users/me/tutorial/acmecicd.pkl, line 8)
+at AcmeCICD#Pipeline.nameRequiresBranchName.<function#1> (file:///Users/me/tutorial/AcmeCICD.pkl, line 8)
 
 6 | name = "prb"
            ^^^^^
@@ -424,7 +436,7 @@ The message is quite instructive, so you can fix the error by adding a `branchNa
 [source,{pkl}]
 .cicd.pkl
 ----
-amends "acmecicd.pkl"
+amends "AcmeCICD.pkl"
 
 timeout = 3
 pipelines {

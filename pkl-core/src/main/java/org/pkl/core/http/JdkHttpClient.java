@@ -22,6 +22,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.net.ConnectException;
 import java.net.URI;
+import java.net.http.HttpClient.Redirect;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandler;
@@ -81,6 +82,7 @@ final class JdkHttpClient implements HttpClient {
         java.net.http.HttpClient.newBuilder()
             .sslContext(createSslContext(certificateFiles, certificateUris))
             .connectTimeout(connectTimeout)
+            .followRedirects(Redirect.NORMAL)
             .build();
   }
 
@@ -99,9 +101,6 @@ final class JdkHttpClient implements HttpClient {
               "errorSslHandshake", request.uri().getHost(), Exceptions.getRootReason(e)));
     } catch (SSLException e) {
       throw new SSLException(Exceptions.getRootReason(e));
-    } catch (IOException e) {
-      // JDK 11 throws IOException instead of SSLHandshakeException
-      throw new IOException(Exceptions.getRootReason(e));
     } catch (InterruptedException e) {
       // next best thing after letting (checked) InterruptedException bubble up
       Thread.currentThread().interrupt();

@@ -46,7 +46,7 @@ import org.pkl.core.util.Pair;
  *   <li>read expressions
  * </ul>
  */
-public class ImportsAndReadsParser
+public final class ImportsAndReadsParser
     extends AbstractAstBuilder<@Nullable List<Pair<String, SourceSection>>> {
 
   /** Parses a module, and collects all imports and reads. */
@@ -69,7 +69,7 @@ public class ImportsAndReadsParser
   }
 
   @Override
-  public @Nullable List<Pair<String, SourceSection>> visitModuleExtendsOrAmendsClause(
+  public List<Pair<String, SourceSection>> visitModuleExtendsOrAmendsClause(
       ModuleExtendsOrAmendsClauseContext ctx) {
     var importStr = doVisitSingleLineConstantStringPart(ctx.stringConstant().ts);
     var sourceSection = createSourceSection(ctx.stringConstant());
@@ -93,11 +93,10 @@ public class ImportsAndReadsParser
   @Override
   public List<Pair<String, SourceSection>> visitReadExpr(ReadExprContext ctx) {
     var expr = ctx.expr();
-    if (!(expr instanceof SingleLineStringLiteralContext)) {
+    if (!(expr instanceof SingleLineStringLiteralContext slCtx)) {
       return Collections.emptyList();
     }
     // best-effort approach; only collect read expressions that are string constants.
-    var slCtx = (SingleLineStringLiteralContext) expr;
     var singleParts = slCtx.singleLineStringPart();
     String importString;
     if (singleParts.isEmpty()) {

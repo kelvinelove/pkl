@@ -4,9 +4,12 @@ import org.junit.platform.engine.EngineDiscoveryRequest
 import org.junit.platform.engine.TestDescriptor
 import org.junit.platform.engine.UniqueId
 import org.junit.platform.engine.support.descriptor.EngineDescriptor
+import org.pkl.commons.test.FileTestUtils
 import org.pkl.commons.test.InputOutputTestEngine
 import org.pkl.commons.test.PackageServer
+import org.pkl.core.http.HttpClient
 import org.pkl.core.project.Project
+import org.pkl.core.util.IoUtils
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.nio.file.Files
@@ -33,6 +36,8 @@ abstract class AbstractLanguageSnippetTestsEngine : InputOutputTestEngine() {
   //language=regexp
   internal val selection: String = ""
 
+  protected val packageServer: PackageServer = PackageServer()
+  
   override val includedTests: List<Regex> = listOf(Regex(".*$selection\\.pkl"))
 
   override val excludedTests: List<Regex> = listOf(Regex(".*/native/.*"))
@@ -41,24 +46,28 @@ abstract class AbstractLanguageSnippetTestsEngine : InputOutputTestEngine() {
 
   override val isInputFile: (Path) -> Boolean = { it.isRegularFile() }
 
-  protected val cacheDir: Path by lazy {
-    rootProjectDir.resolve("pkl-core/build/packages-cache")
-      .also { PackageServer.populateCacheDir(it) }
-  }
-
   protected tailrec fun Path.getProjectDir(): Path? =
     if (Files.exists(this.resolve("PklProject"))) this
     else parent?.getProjectDir()
 
   override fun expectedOutputFileFor(inputFile: Path): Path {
-    val relativePath = inputDir.relativize(inputFile).toString()
+    val relativePath = IoUtils.relativize(inputFile, inputDir).toString()
     val stdoutPath =
       if (relativePath.matches(hiddenExtensionRegex)) relativePath.dropLast(4)
       else relativePath.dropLast(3) + "pcf"
     return expectedOutputDir.resolve(stdoutPath)
   }
 
-  protected fun String.stripFilePaths() = replace(snippetsDir.toString(), "/\$snippetsDir")
+  override fun beforeAll() {
+    // disable SHA verification for packages
+    IoUtils.setTestMode()
+  }
+
+  override fun afterAll() {
+    packageServer.close()
+  }
+
+  protected fun String.stripFilePaths() = replace(snippetsDir.toUri().toString(), "file:///\$snippetsDir/")
 
   protected fun String.stripLineNumbers() = replace(lineNumberRegex) { result ->
     // replace line number with equivalent number of 'x' characters to keep formatting intact
@@ -70,6 +79,14 @@ abstract class AbstractLanguageSnippetTestsEngine : InputOutputTestEngine() {
   // can't think of a better solution right now
   protected fun String.stripVersionCheckErrorMessage() =
     replace("Pkl version is ${Release.current().version()}", "Pkl version is xxx")
+  
+  protected fun String.stripStdlibLocationSha(): String =
+    replace("https://github.com/apple/pkl/blob/${Release.current().commitId()}/stdlib/", "https://github.com/apple/pkl/blob/\$commitId/stdlib/")
+
+  protected fun String.withUnixLineEndings(): String {
+    return if (System.lineSeparator() == "\r\n") replace("\r\n", "\n")
+      else this
+  }
 }
 
 class LanguageSnippetTestsEngine : AbstractLanguageSnippetTestsEngine() {
@@ -92,7 +109,11 @@ class LanguageSnippetTestsEngine : AbstractLanguageSnippetTestsEngine() {
         "name2" to "value2",
         "/foo/bar" to "foobar"
       ))
-      .setModuleCacheDir(cacheDir)
+      .setModuleCacheDir(null)
+      .setHttpClient(HttpClient.builder()
+        .setTestPort(packageServer.port)
+        .addCertificates(FileTestUtils.selfSignedCertificate)
+        .buildLazily())
   }
 
   override val testClass: KClass<*> = LanguageSnippetTests::class
@@ -127,9 +148,9 @@ class LanguageSnippetTestsEngine : AbstractLanguageSnippetTestsEngine() {
         .stripVersionCheckErrorMessage()
     }
 
-    val stderr = logWriter.toString()
+    val stderr = logWriter.toString().withUnixLineEndings()
 
-    return (success && stderr.isBlank()) to (output + stderr).stripFilePaths().stripWebsite()
+    return (success && stderr.isBlank()) to (output + stderr).stripFilePaths().stripWebsite().stripStdlibLocationSha()
   }
 }
 
@@ -158,8 +179,7 @@ abstract class AbstractNativeLanguageSnippetTestsEngine : AbstractLanguageSnippe
     val args = buildList {
       add(pklExecutablePath.toString())
       add("eval")
-      add("--cache-dir")
-      add(cacheDir.toString())
+      add("--no-cache")
       if (inputFile.startsWith(projectsDir)) {
         val projectDir = inputFile.getProjectDir()
         if (projectDir != null) {
@@ -187,7 +207,11 @@ abstract class AbstractNativeLanguageSnippetTestsEngine : AbstractLanguageSnippe
       }
       add("--settings")
       add("pkl:settings")
+      add("--ca-certificates")
+      add(FileTestUtils.selfSignedCertificate.toString())
       add("--test-mode")
+      add("--test-port")
+      add(packageServer.port.toString())
       add(inputFile.toString())
     }
 
@@ -197,13 +221,14 @@ abstract class AbstractNativeLanguageSnippetTestsEngine : AbstractLanguageSnippe
     val process = builder.start()
     return try {
       val (out, err) = listOf(process.inputStream, process.errorStream)
-        .map { it.reader().readText() }
+        .map { it.reader().readText().withUnixLineEndings() }
       val success = process.waitFor() == 0 && err.isBlank()
       success to (out + err)
         .stripFilePaths()
         .stripLineNumbers()
         .stripWebsite()
         .stripVersionCheckErrorMessage()
+        .stripStdlibLocationSha()
     } finally {
       process.destroy()
     }
@@ -233,4 +258,9 @@ class LinuxAarch64LanguageSnippetTestsEngine : AbstractNativeLanguageSnippetTest
 class AlpineLanguageSnippetTestsEngine : AbstractNativeLanguageSnippetTestsEngine() {
   override val pklExecutablePath: Path = rootProjectDir.resolve("pkl-cli/build/executable/pkl-alpine-linux-amd64")
   override val testClass: KClass<*> = AlpineLanguageSnippetTests::class
+}
+
+class WindowsLanguageSnippetTestsEngine : AbstractNativeLanguageSnippetTestsEngine() {
+  override val pklExecutablePath: Path = rootProjectDir.resolve("pkl-cli/build/executable/pkl-windows-amd64.exe")
+  override val testClass: KClass<*> = WindowsLanguageSnippetTests::class
 }

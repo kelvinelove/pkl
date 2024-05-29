@@ -2,7 +2,9 @@ package org.pkl.gradle
 
 import org.assertj.core.api.Assertions
 import org.pkl.commons.readString
+import org.pkl.commons.readString
 import org.pkl.commons.test.PackageServer
+import org.pkl.commons.toNormalizedPathString
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -199,8 +201,8 @@ class EvaluatorsTest : AbstractTest() {
 
   @Test
   fun `source module URIs`() {
-    val pklFile = writeFile(
-      "test.pkl", """
+    writeFile(
+      "testDir/test.pkl", """
       person {
         name = "Pigeon"
         age = 20 + 10
@@ -218,7 +220,7 @@ class EvaluatorsTest : AbstractTest() {
         evaluators {
           evalTest {
             sourceModules = [uri("modulepath:/test.pkl")]
-            modulePath.from "${pklFile.parent}"
+            modulePath.from layout.projectDirectory.dir("testDir")
             outputFile = layout.projectDirectory.file("test.pcf")
             settingsModule = "pkl:settings"
           }
@@ -387,12 +389,12 @@ class EvaluatorsTest : AbstractTest() {
   @Test
   fun `explicitly set cache dir`(@TempDir tempDir: Path) {
     writeBuildFile("pcf", """
-      moduleCacheDir = file("$tempDir")
+      moduleCacheDir = file("${tempDir.toUri()}")
     """.trimIndent())
     writeFile(
       "test.pkl",
       """
-        import "package://localhost:12110/birds@0.5.0#/Bird.pkl"
+        import "package://localhost:0/birds@0.5.0#/Bird.pkl"
         
         res = new Bird { name = "Wally"; favoriteFruit { name = "bananas" } }
       """.trimIndent()
@@ -414,9 +416,9 @@ class EvaluatorsTest : AbstractTest() {
       
       package {
         name = "proj1"
-        baseUri = "package://localhost:12110/\(name)"
+        baseUri = "package://localhost:0/\(name)"
         version = "1.0.0"
-        packageZipUrl = "https://localhost:12110/\(name)@\(version).zip"
+        packageZipUrl = "https://localhost:0/\(name)@\(version).zip"
       }
     """.trimIndent())
     
@@ -425,9 +427,9 @@ class EvaluatorsTest : AbstractTest() {
       
       package {
         name = "proj2"
-        baseUri = "package://localhost:12110/\(name)"
+        baseUri = "package://localhost:0/\(name)"
         version = "1.0.0"
-        packageZipUrl = "https://localhost:12110/\(name)@\(version).zip"
+        packageZipUrl = "https://localhost:0/\(name)@\(version).zip"
       }
     """.trimIndent())
     
@@ -435,9 +437,9 @@ class EvaluatorsTest : AbstractTest() {
       {
         "schemaVersion": 1,
         "resolvedDependencies": {
-          "package://localhost:12110/proj2@1": {
+          "package://localhost:0/proj2@1": {
             "type": "local",
-            "uri": "projectpackage://localhost:12110/proj2@1.0.0",
+            "uri": "projectpackage://localhost:0/proj2@1.0.0",
             "path": "../proj2"
           }
         }

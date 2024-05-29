@@ -16,11 +16,8 @@
 /// Builds the native `pkl` CLI
 extends "GradleJob.pkl"
 
-import "package://pkg.pkl-lang.org/pkl-pantry/com.circleci.v2@1.0.0#/Config.pkl"
+import "package://pkg.pkl-lang.org/pkl-pantry/com.circleci.v2@1.1.2#/Config.pkl"
 import "package://pkg.pkl-lang.org/pkl-pantry/pkl.experimental.uri@1.0.0#/URI.pkl"
-
-/// The OS to run on
-os: "macOS"|"linux"
 
 /// The architecture to use
 arch: "amd64"|"aarch64"
@@ -29,7 +26,7 @@ arch: "amd64"|"aarch64"
 musl: Boolean = false
 
 local setupLinuxEnvironment: Config.RunStep =
-  let (jdkVersion = "11.0.20.1+1")
+  let (jdkVersion = "17.0.9+9")
   let (muslVersion = "1.2.2")
   let (zlibVersion = "1.2.13")
   let (jdkVersionEncoded = URI.encodeComponent(jdkVersion))
@@ -116,21 +113,17 @@ steps {
         """
     }
   }
-  // If building macOS/aarch64, we need to use GraalVM 23.
-  // We can't use GraalVM 23 for any other build because we need to support Java 11, which was
-  // dropped in GraalVM 23.
-  when (os == "macOS" && arch == "aarch64") {
-    new Config.RunStep {
-      command = "git apply patches/graalVm23.patch"
-    }
-  }
   new Config.RunStep {
     name = "gradle buildNative"
     local _os =
-      if (os == "macOS") "mac"
+      if (module.os == "macOS") "mac"
       else if (musl) "alpine"
+      else if (module.os == "windows") "windows"
       else "linux"
     local jobName = "\(_os)Executable\(arch.capitalize())"
+    when (module.os == "windows") {
+      shell = "bash.exe"
+    }
     command = #"""
       export PATH=~/staticdeps/bin:$PATH
       ./gradlew \#(module.gradleArgs) pkl-cli:\#(jobName) pkl-core:test\#(jobName.capitalize())
@@ -147,12 +140,11 @@ steps {
 job {
   when (os == "macOS") {
     macos {
-      xcode = "15.2.0"
+      xcode = "15.3.0"
     }
-    // Use M1 for all architectures. We build amd64/aarch64 based on the GraalVM version,
-    // which gets patched in via `git apply patches/graalVm23.patch`.
     resource_class = "macos.m1.large.gen1"
-  } else {
+  }
+  when (os == "linux") {
     docker {
       new {
         image = if (arch == "aarch64") "arm64v8/oraclelinux:8-slim" else "oraclelinux:8-slim"
@@ -162,5 +154,11 @@ job {
       ["JAVA_HOME"] = "/jdk"
     }
     resource_class = if (arch == "aarch64") "arm.xlarge" else "xlarge"
+  }
+  when (os == "windows") {
+    machine {
+      image = "windows-server-2022-gui:current"
+    }
+    resource_class = "windows.large"
   }
 }

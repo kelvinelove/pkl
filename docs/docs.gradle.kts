@@ -10,12 +10,13 @@ sourceSets {
     java {
       srcDir(file("modules/pkl-core/examples"))
       srcDir(file("modules/pkl-config-java/examples"))
+      srcDir(file("modules/java-binding/examples"))
     }
     val kotlin = project.extensions
       .getByType<KotlinJvmProjectExtension>()
       .sourceSets[name]
       .kotlin
-    kotlin.srcDir(file("modules/pkl-config-kotlin/examples"))
+    kotlin.srcDir(file("modules/kotlin-binding/examples"))
   }
 }
 
@@ -31,5 +32,5 @@ dependencies {
 tasks.test {
   inputs.files(fileTree("modules").matching {
     include("**/pages/*.adoc")
-  })
+  }).withPropertyName("asciiDocFiles").withPathSensitivity(PathSensitivity.RELATIVE)
 }

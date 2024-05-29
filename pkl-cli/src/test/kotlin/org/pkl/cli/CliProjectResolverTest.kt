@@ -15,6 +15,7 @@
  */
 package org.pkl.cli
 
+import java.io.File
 import java.io.StringWriter
 import java.nio.file.Path
 import org.assertj.core.api.Assertions.assertThat
@@ -26,6 +27,7 @@ import org.pkl.commons.cli.CliBaseOptions
 import org.pkl.commons.cli.CliException
 import org.pkl.commons.test.FileTestUtils
 import org.pkl.commons.test.PackageServer
+import org.pkl.core.util.IoUtils
 
 class CliProjectResolverTest {
   companion object {
@@ -73,7 +75,7 @@ class CliProjectResolverTest {
 
         dependencies {
           ["birds"] {
-            uri = "package://localhost:12110/birds@0.5.0"
+            uri = "package://localhost:0/birds@0.5.0"
           }
         }
       """
@@ -98,18 +100,18 @@ class CliProjectResolverTest {
       {
         "schemaVersion": 1,
         "resolvedDependencies": {
-          "package://localhost:12110/birds@0": {
+          "package://localhost:0/birds@0": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/birds@0.5.0",
+            "uri": "projectpackage://localhost:0/birds@0.5.0",
             "checksums": {
-              "sha256": "3f19ab9fcee2f44f93a75a09e531db278c6d2cd25206836c8c2c4071cd7d3118"
+              "sha256": "${PackageServer.BIRDS_SHA}"
             }
           },
-          "package://localhost:12110/fruit@1": {
+          "package://localhost:0/fruit@1": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/fruit@1.0.5",
+            "uri": "projectpackage://localhost:0/fruit@1.0.5",
             "checksums": {
-              "sha256": "b4ea243de781feeab7921227591e6584db5d0673340f30fab2ffe8ad5c9f75f5"
+              "sha256": "${PackageServer.FRUIT_SHA}"
             }
           }
         }
@@ -128,7 +130,7 @@ class CliProjectResolverTest {
 
         dependencies {
           ["birds"] {
-            uri = "package://localhost:12110/birds@0.5.0"
+            uri = "package://localhost:0/birds@0.5.0"
           }
         }
       """
@@ -153,18 +155,18 @@ class CliProjectResolverTest {
       {
         "schemaVersion": 1,
         "resolvedDependencies": {
-          "package://localhost:12110/birds@0": {
+          "package://localhost:0/birds@0": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/birds@0.5.0",
+            "uri": "projectpackage://localhost:0/birds@0.5.0",
             "checksums": {
-              "sha256": "3f19ab9fcee2f44f93a75a09e531db278c6d2cd25206836c8c2c4071cd7d3118"
+              "sha256": "${PackageServer.BIRDS_SHA}"
             }
           },
-          "package://localhost:12110/fruit@1": {
+          "package://localhost:0/fruit@1": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/fruit@1.0.5",
+            "uri": "projectpackage://localhost:0/fruit@1.0.5",
             "checksums": {
-              "sha256": "b4ea243de781feeab7921227591e6584db5d0673340f30fab2ffe8ad5c9f75f5"
+              "sha256": "${PackageServer.FRUIT_SHA}"
             }
           }
         }
@@ -184,7 +186,7 @@ class CliProjectResolverTest {
 
         dependencies {
           ["birds"] {
-            uri = "package://localhost:12110/birds@0.5.0"
+            uri = "package://localhost:0/birds@0.5.0"
           }
           ["project2"] = import("../project2/PklProject")
         }
@@ -198,14 +200,14 @@ class CliProjectResolverTest {
         
         package {
           name = "project2"
-          baseUri = "package://localhost:12110/package2"
+          baseUri = "package://localhost:0/package2"
           version = "5.0.0"
           packageZipUrl = "https://foo.com/package2.zip"
         }
         
         dependencies {
           ["fruit"] {
-            uri = "package://localhost:12110/fruit@1.0.5"
+            uri = "package://localhost:0/fruit@1.0.5"
           }
           ["project3"] = import("../project3/PklProject")
         }
@@ -220,14 +222,14 @@ class CliProjectResolverTest {
         
         package {
           name = "project3"
-          baseUri = "package://localhost:12110/package3"
+          baseUri = "package://localhost:0/package3"
           version = "5.0.0"
           packageZipUrl = "https://foo.com/package3.zip"
         }
         
         dependencies {
           ["fruit"] {
-            uri = "package://localhost:12110/fruit@1.1.0"
+            uri = "package://localhost:0/fruit@1.1.0"
           }
         }
       """
@@ -251,28 +253,28 @@ class CliProjectResolverTest {
       {
         "schemaVersion": 1,
         "resolvedDependencies": {
-          "package://localhost:12110/birds@0": {
+          "package://localhost:0/birds@0": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/birds@0.5.0",
+            "uri": "projectpackage://localhost:0/birds@0.5.0",
             "checksums": {
-              "sha256": "3f19ab9fcee2f44f93a75a09e531db278c6d2cd25206836c8c2c4071cd7d3118"
+              "sha256": "${PackageServer.BIRDS_SHA}"
             }
           },
-          "package://localhost:12110/fruit@1": {
+          "package://localhost:0/fruit@1": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/fruit@1.1.0",
+            "uri": "projectpackage://localhost:0/fruit@1.1.0",
             "checksums": {
-              "sha256": "98ad9fc407a79dc3fd5595e7a29c3803ade0a6957c18ec94b8a1624360b24f01"
+              "sha256": "${PackageServer.FRUIT_1_1_SHA}"
             }
           },
-          "package://localhost:12110/package2@5": {
+          "package://localhost:0/package2@5": {
             "type": "local",
-            "uri": "projectpackage://localhost:12110/package2@5.0.0",
+            "uri": "projectpackage://localhost:0/package2@5.0.0",
             "path": "../project2"
           },
-          "package://localhost:12110/package3@5": {
+          "package://localhost:0/package3@5": {
             "type": "local",
-            "uri": "projectpackage://localhost:12110/package3@5.0.0",
+            "uri": "projectpackage://localhost:0/package3@5.0.0",
             "path": "../project3"
           }
         }
@@ -292,7 +294,7 @@ class CliProjectResolverTest {
 
         dependencies {
           ["birds"] {
-            uri = "package://localhost:12110/birds@0.5.0"
+            uri = "package://localhost:0/birds@0.5.0"
           }
           ["fruit"] = import("../fruit/PklProject")
         }
@@ -306,7 +308,7 @@ class CliProjectResolverTest {
         
         package {
           name = "fruit"
-          baseUri = "package://localhost:12110/fruit"
+          baseUri = "package://localhost:0/fruit"
           version = "1.0.0"
           packageZipUrl = "https://foo.com/fruit.zip"
         }
@@ -333,18 +335,18 @@ class CliProjectResolverTest {
       {
         "schemaVersion": 1,
         "resolvedDependencies": {
-          "package://localhost:12110/birds@0": {
+          "package://localhost:0/birds@0": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/birds@0.5.0",
+            "uri": "projectpackage://localhost:0/birds@0.5.0",
             "checksums": {
-              "sha256": "3f19ab9fcee2f44f93a75a09e531db278c6d2cd25206836c8c2c4071cd7d3118"
+              "sha256": "${PackageServer.BIRDS_SHA}"
             }
           },
-          "package://localhost:12110/fruit@1": {
+          "package://localhost:0/fruit@1": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/fruit@1.0.5",
+            "uri": "projectpackage://localhost:0/fruit@1.0.5",
             "checksums": {
-              "sha256": "b4ea243de781feeab7921227591e6584db5d0673340f30fab2ffe8ad5c9f75f5"
+              "sha256": "${PackageServer.FRUIT_SHA}"
             }
           }
         }
@@ -354,7 +356,7 @@ class CliProjectResolverTest {
       )
     assertThat(errOut.toString())
       .isEqualTo(
-        "WARN: local dependency `package://localhost:12110/fruit@1.0.0` was overridden to remote dependency `package://localhost:12110/fruit@1.0.5`.\n"
+        "WARN: local dependency `package://localhost:0/fruit@1.0.0` was overridden to remote dependency `package://localhost:0/fruit@1.0.5`.${IoUtils.getLineSeparator()}"
       )
   }
 
@@ -367,7 +369,7 @@ class CliProjectResolverTest {
 
       dependencies {
         ["birds"] {
-          uri = "package://localhost:12110/birds@0.5.0"
+          uri = "package://localhost:0/birds@0.5.0"
         }
       }
     """
@@ -381,7 +383,7 @@ class CliProjectResolverTest {
 
       dependencies {
         ["fruit"] {
-          uri = "package://localhost:12110/fruit@1.1.0"
+          uri = "package://localhost:0/fruit@1.1.0"
         }
       }
     """
@@ -401,11 +403,12 @@ class CliProjectResolverTest {
         errWriter = errOut
       )
       .run()
+    val sep = File.separatorChar
     assertThat(consoleOut.toString())
-      .isEqualTo(
+      .isEqualToNormalizingNewlines(
         """
-      $tempDir/project1/PklProject.deps.json
-      $tempDir/project2/PklProject.deps.json
+      $tempDir${sep}project1${sep}PklProject.deps.json
+      $tempDir${sep}project2${sep}PklProject.deps.json
     
     """
           .trimIndent()
@@ -416,18 +419,18 @@ class CliProjectResolverTest {
       {
         "schemaVersion": 1,
         "resolvedDependencies": {
-          "package://localhost:12110/birds@0": {
+          "package://localhost:0/birds@0": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/birds@0.5.0",
+            "uri": "projectpackage://localhost:0/birds@0.5.0",
             "checksums": {
-              "sha256": "3f19ab9fcee2f44f93a75a09e531db278c6d2cd25206836c8c2c4071cd7d3118"
+              "sha256": "${PackageServer.BIRDS_SHA}"
             }
           },
-          "package://localhost:12110/fruit@1": {
+          "package://localhost:0/fruit@1": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/fruit@1.0.5",
+            "uri": "projectpackage://localhost:0/fruit@1.0.5",
             "checksums": {
-              "sha256": "b4ea243de781feeab7921227591e6584db5d0673340f30fab2ffe8ad5c9f75f5"
+              "sha256": "${PackageServer.FRUIT_SHA}"
             }
           }
         }
@@ -441,11 +444,11 @@ class CliProjectResolverTest {
       {
         "schemaVersion": 1,
         "resolvedDependencies": {
-          "package://localhost:12110/fruit@1": {
+          "package://localhost:0/fruit@1": {
             "type": "remote",
-            "uri": "projectpackage://localhost:12110/fruit@1.1.0",
+            "uri": "projectpackage://localhost:0/fruit@1.1.0",
             "checksums": {
-              "sha256": "98ad9fc407a79dc3fd5595e7a29c3803ade0a6957c18ec94b8a1624360b24f01"
+              "sha256": "${PackageServer.FRUIT_1_1_SHA}"
             }
           }
         }

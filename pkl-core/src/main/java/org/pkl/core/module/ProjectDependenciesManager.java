@@ -35,7 +35,7 @@ import org.pkl.core.runtime.VmExceptionBuilder;
 import org.pkl.core.util.EconomicMaps;
 import org.pkl.core.util.json.Json.JsonParseException;
 
-public class ProjectDependenciesManager {
+public final class ProjectDependenciesManager {
   public static final String PKL_PROJECT_FILENAME = "PklProject";
 
   public static final String PKL_PROJECT_DEPS_FILENAME = "PklProject.deps.json";
@@ -50,10 +50,11 @@ public class ProjectDependenciesManager {
   private Map<String, Dependency> myDependencies = null;
 
   @GuardedBy("lock")
-  private EconomicMap<PackageUri, Map<String, Dependency>> localPackageDependencies = null;
+  private final EconomicMap<PackageUri, Map<String, Dependency>> localPackageDependencies =
+      EconomicMaps.create();
 
   @GuardedBy("lock")
-  private EconomicMap<PackageUri, Map<String, Dependency>> packageDependencies =
+  private final EconomicMap<PackageUri, Map<String, Dependency>> packageDependencies =
       EconomicMaps.create();
 
   private final Object lock = new Object();
@@ -74,7 +75,6 @@ public class ProjectDependenciesManager {
       }
       var projectDeps = getProjectDeps();
       myDependencies = doBuildResolvedDependenciesForProject(declaredDependencies, projectDeps);
-      localPackageDependencies = EconomicMaps.create();
       for (var localPkg : declaredDependencies.getLocalDependencies().values()) {
         ensureLocalProjectDependencyInitialized(localPkg, projectDeps);
       }
@@ -83,7 +83,6 @@ public class ProjectDependenciesManager {
 
   private void ensureLocalProjectDependencyInitialized(
       DeclaredDependencies localProjectDependencies, ProjectDeps projectDeps) {
-    assert localPackageDependencies != null;
     // turn `package:` scheme into `projectpackage`: scheme
     var uri = PackageUri.create("project" + localProjectDependencies.getMyPackageUri());
     if (localPackageDependencies.containsKey(uri)) {
@@ -208,13 +207,15 @@ public class ProjectDependenciesManager {
       if (projectDeps == null) {
         var depsPath = getProjectDepsFile();
         if (!Files.exists(depsPath)) {
-          throw new VmExceptionBuilder().evalError("missingProjectDepsJson", projectDir).build();
+          throw new VmExceptionBuilder()
+              .evalError("missingProjectDepsJson", projectDir.toUri())
+              .build();
         }
         try {
           projectDeps = ProjectDeps.parse(depsPath);
         } catch (IOException | URISyntaxException | JsonParseException e) {
           throw new VmExceptionBuilder()
-              .evalError("invalidProjectDepsJson", depsPath, e.getMessage())
+              .evalError("invalidProjectDepsJson", depsPath.toUri(), e.getMessage())
               .withCause(e)
               .build();
         }

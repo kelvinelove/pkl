@@ -15,6 +15,7 @@
  */
 package org.pkl.cli
 
+import java.io.File
 import java.io.StringWriter
 import java.net.URI
 import java.nio.file.FileSystems
@@ -27,6 +28,8 @@ import org.assertj.core.api.Assertions.assertThatCode
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.condition.DisabledOnOs
+import org.junit.jupiter.api.condition.OS
 import org.junit.jupiter.api.io.TempDir
 import org.pkl.commons.cli.CliBaseOptions
 import org.pkl.commons.cli.CliException
@@ -35,6 +38,7 @@ import org.pkl.commons.readString
 import org.pkl.commons.test.FileTestUtils
 import org.pkl.commons.test.PackageServer
 import org.pkl.commons.writeString
+import org.pkl.core.util.IoUtils
 
 class CliProjectPackagerTest {
   companion object {
@@ -224,7 +228,7 @@ class CliProjectPackagerTest {
 
         dependencies {
           ["birds"] {
-            uri = "package://localhost:12110/birds@0.5.0"
+            uri = "package://localhost:0/birds@0.5.0"
           }
         }
       """
@@ -237,18 +241,18 @@ class CliProjectPackagerTest {
         {
           "schemaVersion": 1,
           "resolvedDependencies": {
-            "package://localhost:12110/birds@0": {
+            "package://localhost:0/birds@0": {
               "type": "remote",
-              "uri": "projectpackage://localhost:12110/birds@0.5.0",
+              "uri": "projectpackage://localhost:0/birds@0.5.0",
               "checksums": {
-                "sha256": "3f19ab9fcee2f44f93a75a09e531db278c6d2cd25206836c8c2c4071cd7d3118"
+                "sha256": "04eec465b217fb9779489525d26e9b587e5e47ff4d584c7673a450109715bc31"
               }
             },
-            "package://localhost:12110/fruit@1": {
+            "package://localhost:0/fruit@1": {
               "type": "remote",
-              "uri": "projectpackage://localhost:12110/fruit@1.0.5",
+              "uri": "projectpackage://localhost:0/fruit@1.0.5",
               "checksums": {
-                "sha256": "b4ea243de781feeab7921227591e6584db5d0673340f30fab2ffe8ad5c9f75f5"
+                "sha256": "${PackageServer.FRUIT_SHA}"
               }
             }
           }
@@ -332,7 +336,7 @@ class CliProjectPackagerTest {
         "version": "1.0.0",
         "packageZipUrl": "https://foo.com",
         "packageZipChecksums": {
-          "sha256": "7f515fbc4b229ba171fac78c7c3f2c2e68e2afebae8cfba042b12733943a2813"
+          "sha256": "e83b67722ea17ba41717ce6e99ae8ee02d66df6294bd319ce403075b1071c3e0"
         },
         "dependencies": {},
         "authors": []
@@ -344,9 +348,9 @@ class CliProjectPackagerTest {
     assertThat(expectedArchive.zipFilePaths())
       .hasSameElementsAs(listOf("/", "/c", "/c/d", "/c/d/foo.txt", "/a", "/a/b", "/a/b/foo.pkl"))
     assertThat(expectedMetadataChecksum)
-      .hasContent("203ef387f217a3caee7f19819ef2b50926929269241cb7b3a29d95237b2c7f4b")
+      .hasContent("72ab32b27393bde5f316b00f184faae919378e4d7643872c605f681b14b647bf")
     assertThat(expectedArchiveChecksum)
-      .hasContent("7f515fbc4b229ba171fac78c7c3f2c2e68e2afebae8cfba042b12733943a2813")
+      .hasContent("e83b67722ea17ba41717ce6e99ae8ee02d66df6294bd319ce403075b1071c3e0")
     FileSystems.newFileSystem(URI("jar:" + expectedArchive.toUri()), mutableMapOf<String, String>())
       .use { fs ->
         assertThat(fs.getPath("a/b/foo.pkl")).hasSameTextualContentAs(fooPkl)
@@ -364,6 +368,10 @@ class CliProjectPackagerTest {
       writeEmptyFile("main.test.pkl")
       writeEmptyFile("child/main.pkl")
       writeEmptyFile("child/main.test.pkl")
+      writeEmptyFile("examples/Workflow.pkl")
+      writeEmptyFile("examples/Ex1.pkl")
+      writeEmptyFile("tests/Test1.pkl")
+      writeEmptyFile("tests/integration/TestIng1.pkl")
     }
 
     tempDir.writeFile(
@@ -380,6 +388,8 @@ class CliProjectPackagerTest {
             "*.bin"
             "child/main.pkl"
             "*.test.pkl"
+            "examples/Ex1.pkl"
+            "tests/**"
           }
         }
       """
@@ -399,14 +409,12 @@ class CliProjectPackagerTest {
       .hasSameElementsAs(
         listOf(
           "/",
-          "/a",
-          "/a/b",
-          "/a/b/c",
-          "/child",
+          "/examples",
+          "/examples/Workflow.pkl",
           "/input",
           "/input/foo",
           "/input/foo/bar.txt",
-          "/main.pkl",
+          "/main.pkl"
         )
       )
   }
@@ -429,7 +437,7 @@ class CliProjectPackagerTest {
         
         dependencies {
           ["birds"] {
-            uri = "package://localhost:12110/birds@0.5.0"
+            uri = "package://localhost:0/birds@0.5.0"
           }
           ["project2"] = import("../project2/PklProject")
         }
@@ -442,16 +450,16 @@ class CliProjectPackagerTest {
         {
           "schemaVersion": 1,
           "resolvedDependencies": {
-            "package://localhost:12110/birds@0": {
+            "package://localhost:0/birds@0": {
               "type": "remote",
-              "uri": "projectpackage://localhost:12110/birds@0.5.0",
+              "uri": "projectpackage://localhost:0/birds@0.5.0",
               "checksums": {
-                "sha256": "3f19ab9fcee2f44f93a75a09e531db278c6d2cd25206836c8c2c4071cd7d3118"
+                "sha256": "${PackageServer.BIRDS_SHA}"
               }
             },
-            "package://localhost:12110/project2@5": {
+            "package://localhost:0/project2@5": {
               "type": "local",
-              "uri": "projectpackage://localhost:12110/project2@5.0.0",
+              "uri": "projectpackage://localhost:0/project2@5.0.0",
               "path": "../project2"
             }
           }
@@ -467,7 +475,7 @@ class CliProjectPackagerTest {
         
         package {
           name = "project2"
-          baseUri = "package://localhost:12110/project2"
+          baseUri = "package://localhost:0/project2"
           version = "5.0.0"
           packageZipUrl = "https://foo.com/project2.zip"
         }
@@ -505,19 +513,19 @@ class CliProjectPackagerTest {
         "version": "1.0.0",
         "packageZipUrl": "https://foo.com",
         "packageZipChecksums": {
-          "sha256": "7d08a65078e0bfc382c16fe1bb94546ab9a11e6f551087f362a4515ca98102fc"
+          "sha256": "8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85"
         },
         "dependencies": {
           "birds": {
-            "uri": "package://localhost:12110/birds@0.5.0",
+            "uri": "package://localhost:0/birds@0.5.0",
             "checksums": {
-              "sha256": "3f19ab9fcee2f44f93a75a09e531db278c6d2cd25206836c8c2c4071cd7d3118"
+              "sha256": "${PackageServer.BIRDS_SHA}"
             }
           },
           "project2": {
-            "uri": "package://localhost:12110/project2@5.0.0",
+            "uri": "package://localhost:0/project2@5.0.0",
             "checksums": {
-              "sha256": "ddebb806e5b218ebb1a2baa14ad206b46e7a0c1585fa9863a486c75592bc8b16"
+              "sha256": "981787869571330b2f609a94a5912466990ce00e3fa94e7f290c2f99a6d5e5ed"
             }
           }
         },
@@ -533,11 +541,11 @@ class CliProjectPackagerTest {
         """
     {
       "name": "project2",
-      "packageUri": "package://localhost:12110/project2@5.0.0",
+      "packageUri": "package://localhost:0/project2@5.0.0",
       "version": "5.0.0",
       "packageZipUrl": "https://foo.com/project2.zip",
       "packageZipChecksums": {
-        "sha256": "7d08a65078e0bfc382c16fe1bb94546ab9a11e6f551087f362a4515ca98102fc"
+        "sha256": "8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85"
       },
       "dependencies": {},
       "authors": []
@@ -567,7 +575,7 @@ class CliProjectPackagerTest {
         
         dependencies {
           ["birds"] {
-            uri = "package://localhost:12110/birds@0.5.0"
+            uri = "package://localhost:0/birds@0.5.0"
           }
           ["project2"] = import("../project2/PklProject")
         }
@@ -580,16 +588,16 @@ class CliProjectPackagerTest {
         {
           "schemaVersion": 1,
           "resolvedDependencies": {
-            "package://localhost:12110/birds@0": {
+            "package://localhost:0/birds@0": {
               "type": "remote",
-              "uri": "projectpackage://localhost:12110/birds@0.5.0",
+              "uri": "projectpackage://localhost:0/birds@0.5.0",
               "checksums": {
-                "sha256": "3f19ab9fcee2f44f93a75a09e531db278c6d2cd25206836c8c2c4071cd7d3118"
+                "sha256": "0a5ad2dc13f06f73f96ba94e8d01d48252bc934e2de71a837620ca0fef8a7453"
               }
             },
-            "package://localhost:12110/project2@5": {
+            "package://localhost:0/project2@5": {
               "type": "local",
-              "uri": "projectpackage://localhost:12110/project2@5.0.0",
+              "uri": "projectpackage://localhost:0/project2@5.0.0",
               "path": "../project2"
             }
           }
@@ -605,7 +613,7 @@ class CliProjectPackagerTest {
         
         package {
           name = "project2"
-          baseUri = "package://localhost:12110/project2"
+          baseUri = "package://localhost:0/project2"
           version = "5.0.0"
           packageZipUrl = "https://foo.com/project2.zip"
         }
@@ -686,7 +694,11 @@ class CliProjectPackagerTest {
       )
   }
 
+  // Absolute path imports on Windows must use an absolute URI (e.g. file:///C:/Foo/Bar), because
+  // they must contain drive letters, which conflict with schemes.
+  // We skip validation for absolute URIs, so effectively we skip this check on Windows.
   @Test
+  @DisabledOnOs(OS.WINDOWS)
   fun `import path verification -- absolute import from root dir`(@TempDir tempDir: Path) {
     tempDir.writeFile(
       "main.pkl",
@@ -734,6 +746,7 @@ class CliProjectPackagerTest {
   }
 
   @Test
+  @DisabledOnOs(OS.WINDOWS)
   fun `import path verification -- absolute read from root dir`(@TempDir tempDir: Path) {
     tempDir.writeFile(
       "main.pkl",
@@ -854,17 +867,18 @@ class CliProjectPackagerTest {
         consoleWriter = out
       )
       .run()
+    val sep = File.separatorChar
     assertThat(out.toString())
-      .isEqualTo(
+      .isEqualToNormalizingNewlines(
         """
-      .out/project1@1.0.0/project1@1.0.0.zip
-      .out/project1@1.0.0/project1@1.0.0.zip.sha256
-      .out/project1@1.0.0/project1@1.0.0
-      .out/project1@1.0.0/project1@1.0.0.sha256
-      .out/project2@2.0.0/project2@2.0.0.zip
-      .out/project2@2.0.0/project2@2.0.0.zip.sha256
-      .out/project2@2.0.0/project2@2.0.0
-      .out/project2@2.0.0/project2@2.0.0.sha256
+      .out${sep}project1@1.0.0${sep}project1@1.0.0.zip
+      .out${sep}project1@1.0.0${sep}project1@1.0.0.zip.sha256
+      .out${sep}project1@1.0.0${sep}project1@1.0.0
+      .out${sep}project1@1.0.0${sep}project1@1.0.0.sha256
+      .out${sep}project2@2.0.0${sep}project2@2.0.0.zip
+      .out${sep}project2@2.0.0${sep}project2@2.0.0.zip.sha256
+      .out${sep}project2@2.0.0${sep}project2@2.0.0
+      .out${sep}project2@2.0.0${sep}project2@2.0.0.sha256
 
     """
           .trimIndent()
@@ -880,14 +894,14 @@ class CliProjectPackagerTest {
     tempDir.writeFile("project/main.pkl", "res = 1")
     tempDir.writeFile(
       "project/PklProject",
-      // intentionally conflict with localhost:12110/birds@0.5.0 from our test fixtures
+      // intentionally conflict with localhost:0/birds@0.5.0 from our test fixtures
       """
         amends "pkl:Project"
         
         package {
           name = "birds"
           version = "0.5.0"
-          baseUri = "package://localhost:12110/birds"
+          baseUri = "package://localhost:0/birds"
           packageZipUrl = "https://foo.com"
         }
       """
@@ -912,10 +926,10 @@ class CliProjectPackagerTest {
     assertThat(e)
       .hasMessageStartingWith(
         """
-      Package `package://localhost:12110/birds@0.5.0` was already published with different contents.
+      Package `package://localhost:0/birds@0.5.0` was already published with different contents.
       
-      Computed checksum: 7324e17214b6dcda63ebfb57d5a29b077af785c13bed0dc22b5138628a3f8d8f
-      Published checksum: 3f19ab9fcee2f44f93a75a09e531db278c6d2cd25206836c8c2c4071cd7d3118
+      Computed checksum: aa8c883841db22e92794f4708b01dc905b5da77645b7dfb5b22a73da8c347db1
+      Published checksum: ${PackageServer.BIRDS_SHA}
     """
           .trimIndent()
       )
@@ -932,7 +946,7 @@ class CliProjectPackagerTest {
         package {
           name = "mangos"
           version = "1.0.0"
-          baseUri = "package://localhost:12110/mangos"
+          baseUri = "package://localhost:0/mangos"
           packageZipUrl = "https://foo.com"
         }
       """
@@ -952,13 +966,14 @@ class CliProjectPackagerTest {
         consoleWriter = out
       )
       .run()
+    val sep = File.separatorChar
     assertThat(out.toString())
-      .isEqualTo(
+      .isEqualToNormalizingNewlines(
         """
-      .out/mangos@1.0.0/mangos@1.0.0.zip
-      .out/mangos@1.0.0/mangos@1.0.0.zip.sha256
-      .out/mangos@1.0.0/mangos@1.0.0
-      .out/mangos@1.0.0/mangos@1.0.0.sha256
+      .out${sep}mangos@1.0.0${sep}mangos@1.0.0.zip
+      .out${sep}mangos@1.0.0${sep}mangos@1.0.0.zip.sha256
+      .out${sep}mangos@1.0.0${sep}mangos@1.0.0
+      .out${sep}mangos@1.0.0${sep}mangos@1.0.0.sha256
 
     """
           .trimIndent()
@@ -967,7 +982,7 @@ class CliProjectPackagerTest {
 
   private fun Path.zipFilePaths(): List<String> {
     return FileSystems.newFileSystem(URI("jar:${toUri()}"), emptyMap<String, String>()).use { fs ->
-      Files.walk(fs.getPath("/")).map { it.toString() }.collect(Collectors.toList())
+      Files.walk(fs.getPath("/")).map(IoUtils::toNormalizedPathString).collect(Collectors.toList())
     }
   }
 }

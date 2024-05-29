@@ -46,8 +46,7 @@ public final class Reflection {
   }
 
   public static boolean isMissingTypeArguments(Type type) {
-    if (type instanceof WildcardType) {
-      var wildcardType = (WildcardType) type;
+    if (type instanceof WildcardType wildcardType) {
       var baseType =
           wildcardType.getLowerBounds().length > 0
               ? wildcardType.getLowerBounds()[0]
@@ -62,11 +61,10 @@ public final class Reflection {
    * instantiable (not an interface or abstract class).
    */
   public static Type normalize(Type type) {
-    if (type instanceof WildcardType) {
-      var wcType = (WildcardType) type;
-      var bounds = wcType.getLowerBounds();
+    if (type instanceof WildcardType wildcardType) {
+      var bounds = wildcardType.getLowerBounds();
       if (bounds.length > 0) return bounds[0];
-      bounds = wcType.getUpperBounds();
+      bounds = wildcardType.getUpperBounds();
       if (bounds.length > 0) return bounds[0];
     }
     return getExactSupertype(type, toRawType(type));
@@ -106,8 +104,8 @@ public final class Reflection {
 
   /**
    * Returns a parameterization of the given raw supertype, taking into account type arguments of
-   * the given subtype. For example, @{code getExactSupertype(listOf(String.class),
-   * Collection.class)} will return @{code collectionOf(String.class)}. If the given subtype is not
+   * the given subtype. For example, {@code getExactSupertype(listOf(String.class),
+   * Collection.class)} will return {@code collectionOf(String.class)}. If the given subtype is not
    * a parameterized type, returns the given raw supertype. If the given types have no inheritance
    * relationship, returns {@code null}.
    */
@@ -120,8 +118,8 @@ public final class Reflection {
 
   /**
    * Returns a parameterization of the given raw subtype, taking into account type arguments of the
-   * given supertype. For example, @{code getExactSubtype(collectionOf(String.class), List.class)}
-   * will return @{code listOf(String.class)}. If the given supertype is not a parameterized type,
+   * given supertype. For example, {@code getExactSubtype(collectionOf(String.class), List.class)}
+   * will return {@code listOf(String.class)}. If the given supertype is not a parameterized type,
    * returns the given raw subtype. If the given types have no inheritance relationship, returns
    * {@code null}.
    */
@@ -154,8 +152,8 @@ public final class Reflection {
    * eliminate them.
    */
   private static Type uncapture(Type type) {
-    if (type instanceof CaptureType) {
-      return ((CaptureType) type).getWildcardType();
+    if (type instanceof CaptureType captureType) {
+      return captureType.getWildcardType();
     }
     return type;
   }

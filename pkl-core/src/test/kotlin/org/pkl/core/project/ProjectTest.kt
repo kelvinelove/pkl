@@ -137,7 +137,7 @@ class ProjectTest {
   @Test
   fun `evaluate project module -- invalid checksum`() {
     PackageServer().use { server ->
-      val projectDir = Path.of(javaClass.getResource("badProjectChecksum2/")!!.path)
+      val projectDir = Path.of(javaClass.getResource("badProjectChecksum2/")!!.toURI())
       val project = Project.loadFromPath(projectDir.resolve("PklProject"))
       val httpClient = HttpClient.builder()
         .addCertificates(FileTestUtils.selfSignedCertificate)
@@ -151,11 +151,11 @@ class ProjectTest {
       assertThatCode { evaluator.evaluate(ModuleSource.path(projectDir.resolve("bug.pkl"))) }
         .hasMessageStartingWith("""
         –– Pkl Error ––
-        Cannot download package `package://localhost:12110/fruit@1.0.5` because the computed checksum for package metadata does not match the expected checksum.
+        Cannot download package `package://localhost:0/fruit@1.0.5` because the computed checksum for package metadata does not match the expected checksum.
         
-        Computed checksum: "b4ea243de781feeab7921227591e6584db5d0673340f30fab2ffe8ad5c9f75f5"
+        Computed checksum: "${PackageServer.FRUIT_SHA}"
         Expected checksum: "intentionally bogus checksum"
-        Asset URL: "https://localhost:12110/fruit@1.0.5"
+        Asset URL: "https://localhost:0/fruit@1.0.5"
         
         1 | import "@fruit/Fruit.pkl"
             ^^^^^^^^^^^^^^^^^^^^^^^^^
