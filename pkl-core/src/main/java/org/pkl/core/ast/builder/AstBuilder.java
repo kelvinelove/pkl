@@ -1825,6 +1825,8 @@ public final class AstBuilder extends AbstractAstBuilder<Object> {
     } catch (VmException e) {
       throw exceptionBuilder()
           .evalError(e.getMessage(), e.getMessageArguments())
+          .withCause(e.getCause())
+          .withHint(e.getHint())
           .withSourceSection(createSourceSection(importUriCtx))
           .build();
     }
@@ -2218,8 +2220,7 @@ public final class AstBuilder extends AbstractAstBuilder<Object> {
       return ReadOrNullNodeGen.create(createSourceSection(ctx), moduleKey, visitExpr(exprCtx));
     }
     assert tokenType == PklLexer.READ_GLOB;
-    return ReadGlobNodeGen.create(
-        language, createSourceSection(ctx), moduleKey, visitExpr(exprCtx));
+    return ReadGlobNodeGen.create(createSourceSection(ctx), moduleKey, visitExpr(exprCtx));
   }
 
   @Override
@@ -2660,8 +2661,7 @@ public final class AstBuilder extends AbstractAstBuilder<Object> {
     }
     var resolvedUri = resolveImport(importUri, importUriCtx);
     if (isGlobImport) {
-      return new ImportGlobNode(
-          language, section, moduleInfo.getResolvedModuleKey(), resolvedUri, importUri);
+      return new ImportGlobNode(section, moduleInfo.getResolvedModuleKey(), resolvedUri, importUri);
     }
     return new ImportNode(language, section, moduleInfo.getResolvedModuleKey(), resolvedUri);
   }

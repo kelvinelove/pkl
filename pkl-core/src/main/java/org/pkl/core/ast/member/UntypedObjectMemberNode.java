@@ -18,11 +18,10 @@ package org.pkl.core.ast.member;
 import com.oracle.truffle.api.frame.FrameDescriptor;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import org.pkl.core.ast.ExpressionNode;
-import org.pkl.core.ast.MemberNode;
 import org.pkl.core.runtime.VmLanguage;
 import org.pkl.core.util.Nullable;
 
-public final class UntypedObjectMemberNode extends MemberNode {
+public final class UntypedObjectMemberNode extends RegularMemberNode {
   public UntypedObjectMemberNode(
       @Nullable VmLanguage language,
       FrameDescriptor descriptor,
