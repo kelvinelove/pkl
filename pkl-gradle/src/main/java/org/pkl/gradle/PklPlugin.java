@@ -281,6 +281,8 @@ public class PklPlugin implements Plugin<Project> {
     spec.getNoCache().convention(false);
 
     spec.getTestPort().convention(-1);
+
+    spec.getHttpNoProxy().convention(List.of());
   }
 
   private void configureCodeGenSpec(CodeGenSpec spec) {
@@ -410,6 +412,7 @@ public class PklPlugin implements Plugin<Project> {
     task.getOutputDir().set(spec.getOutputDir());
     task.getGenerateSpringBootConfig().set(spec.getGenerateSpringBootConfig());
     task.getImplementSerializable().set(spec.getImplementSerializable());
+    task.getRenames().set(spec.getRenames());
   }
 
   private <T extends BasePklTask, S extends BasePklSpec> void configureBaseTask(T task, S spec) {
@@ -424,6 +427,8 @@ public class PklPlugin implements Plugin<Project> {
     task.getModuleCacheDir().set(spec.getModuleCacheDir());
     task.getEvalTimeout().set(spec.getEvalTimeout());
     task.getTestPort().set(spec.getTestPort());
+    task.getHttpProxy().set(spec.getHttpProxy());
+    task.getHttpNoProxy().set(spec.getHttpNoProxy());
   }
 
   private <T extends ModulesTask, S extends ModulesSpec> void configureModulesTask(T task, S spec) {

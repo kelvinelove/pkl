@@ -1,3 +1,6 @@
+import java.security.KeyStore
+import java.security.cert.CertificateFactory
+
 plugins {
   pklAllProjects
   pklKotlinLibrary
@@ -35,6 +38,8 @@ val stagedLinuxAarch64Executable: Configuration by configurations.creating
 val stagedAlpineLinuxAmd64Executable: Configuration by configurations.creating
 val stagedWindowsAmd64Executable: Configuration by configurations.creating
 
+val certs: SourceSet by sourceSets.creating
+
 dependencies {
   compileOnly(libs.svm)
 
@@ -56,6 +61,7 @@ dependencies {
   }
 
   testImplementation(projects.pklCommonsTest)
+  testImplementation(libs.wiremock)
 
   fun executableDir(name: String) = files(layout.buildDirectory.dir("executable/$name"))
   stagedMacAmd64Executable(executableDir("pkl-macos-amd64"))
@@ -103,8 +109,8 @@ val javaExecutable by tasks.registering(ExecutableJar::class) {
 val testJavaExecutable by tasks.registering(Test::class) {
   testClassesDirs = tasks.test.get().testClassesDirs
   classpath =
-      // compiled test classes
-      sourceSets.test.get().output +
+    // compiled test classes
+    sourceSets.test.get().output +
       // java executable
       javaExecutable.get().outputs.files +
       // test-only dependencies
@@ -121,7 +127,8 @@ tasks.check {
 // To catch this and similar problems, test that Java executable starts successfully.
 val testStartJavaExecutable by tasks.registering(Exec::class) {
   dependsOn(javaExecutable)
-  val outputFile = layout.buildDirectory.file("testStartJavaExecutable") // dummy output to satisfy up-to-date check
+  val outputFile =
+    layout.buildDirectory.file("testStartJavaExecutable") // dummy output to satisfy up-to-date check
   outputs.file(outputFile)
 
   if (buildInfo.os.isWindows) {
@@ -141,11 +148,38 @@ tasks.check {
   dependsOn(testStartJavaExecutable)
 }
 
+val trustStore = layout.buildDirectory.dir("generateTrustStore/PklCARoots.p12")
+val trustStorePassword = "password" // no sensitive data to protect
+
+// generate a trust store for Pkl's built-in CA certificates
+val generateTrustStore by tasks.registering {
+  inputs.file(certs.resources.singleFile)
+  outputs.file(trustStore)
+  doLast {
+    val certificates = certs.resources.singleFile.inputStream().use { stream ->
+      CertificateFactory.getInstance("X.509").generateCertificates(stream)
+    }
+    KeyStore.getInstance("PKCS12").apply {
+      load(null, trustStorePassword.toCharArray()) // initialize empty trust store
+      for ((index, certificate) in certificates.withIndex()) {
+        setCertificateEntry("cert-$index", certificate)
+      }
+      val trustStoreFile = trustStore.get().asFile
+      trustStoreFile.parentFile.mkdirs()
+      trustStoreFile.outputStream().use { stream ->
+        store(stream, trustStorePassword.toCharArray())
+      }
+    }
+  }
+}
+
 fun Exec.configureExecutable(
   graalVm: BuildInfo.GraalVm,
   outputFile: Provider<RegularFile>,
   extraArgs: List<String> = listOf()
 ) {
+  dependsOn(generateTrustStore)
+
   inputs.files(sourceSets.main.map { it.output })
     .withPropertyName("mainSourceSets")
     .withPathSensitivity(PathSensitivity.RELATIVE)
@@ -153,8 +187,10 @@ fun Exec.configureExecutable(
     .withPropertyName("runtimeClasspath")
     .withNormalizer(ClasspathNormalizer::class)
   val nativeImageCommandName = if (buildInfo.os.isWindows) "native-image.cmd" else "native-image"
-  inputs.files(file(graalVm.baseDir)
-    .resolve("bin/$nativeImageCommandName"))
+  inputs.files(
+    file(graalVm.baseDir)
+      .resolve("bin/$nativeImageCommandName")
+  )
     .withPropertyName("graalVmNativeImage")
     .withPathSensitivity(PathSensitivity.ABSOLUTE)
   outputs.file(outputFile)
@@ -167,39 +203,46 @@ fun Exec.configureExecutable(
   val exclusions = listOf(libs.truffleApi, libs.graalSdk).map { it.get().module.name }
   // https://www.graalvm.org/22.0/reference-manual/native-image/Options/
   argumentProviders.add(CommandLineArgumentProvider {
-    listOf(
-        // currently gives a deprecation warning, but we've been told 
-        // that the "initialize everything at build time" *CLI* option is likely here to stay
-        "--initialize-at-build-time="
-        // needed for messagepack-java (see https://github.com/msgpack/msgpack-java/issues/600)
-        ,"--initialize-at-run-time=org.msgpack.core.buffer.DirectBufferAccess"
-        ,"--no-fallback"
-        ,"-H:IncludeResources=org/pkl/core/stdlib/.*\\.pkl"
-        ,"-H:IncludeResources=org/jline/utils/.*"
-        ,"-H:IncludeResources=org/pkl/certs/PklCARoots.pem"
-        ,"-H:IncludeResourceBundles=org.pkl.core.errorMessages"
-        ,"--macro:truffle"
-        ,"-H:Class=org.pkl.cli.Main"
-        ,"-H:Name=${outputFile.get().asFile.name}"
-        // the actual limit (currently) used by native-image is this number + 1400 (idea is to compensate for Truffle's own nodes)
-        ,"-H:MaxRuntimeCompileMethods=1800"
-        ,"-H:+EnforceMaxRuntimeCompileMethods"
-        ,"--enable-url-protocols=http,https"
-        ,"-H:+ReportExceptionStackTraces"
-        // disable automatic support for JVM CLI options (puts our main class in full control of argument parsing)
-        ,"-H:-ParseRuntimeOptions"
-        // quick build mode: 40% faster compilation, 20% smaller (but presumably also slower) executable
-        ,if (!buildInfo.isReleaseBuild) "-Ob" else ""
-        // native-image rejects non-existing class path entries -> filter
-        ,"--class-path"
-        ,((sourceSets.main.get().output + configurations.runtimeClasspath.get())
-            .filter { it.exists() && !exclusions.any { exclude -> it.name.contains(exclude) }})
-            .asPath
-        // make sure dev machine stays responsive (15% slowdown on my laptop)
-        ,"-J-XX:ActiveProcessorCount=${
-          Runtime.getRuntime().availableProcessors() / (if (buildInfo.os.isMacOsX && !buildInfo.isCiBuild) 4 else 1)
-        }"
-    ) + extraArgs
+    buildList {
+      // currently gives a deprecation warning, but we've been told 
+      // that the "initialize everything at build time" *CLI* option is likely here to stay
+      add("--initialize-at-build-time=")
+      // needed for messagepack-java (see https://github.com/msgpack/msgpack-java/issues/600)
+      add("--initialize-at-run-time=org.msgpack.core.buffer.DirectBufferAccess")
+      add("--no-fallback")
+      add("-Djavax.net.ssl.trustStore=${trustStore.get().asFile}")
+      add("-Djavax.net.ssl.trustStorePassword=$trustStorePassword")
+      add("-Djavax.net.ssl.trustStoreType=PKCS12")
+      // security property "ocsp.enable=true" is set in Main.kt
+      add("-Dcom.sun.net.ssl.checkRevocation=true")
+      add("-H:IncludeResources=org/pkl/core/stdlib/.*\\.pkl")
+      add("-H:IncludeResources=org/jline/utils/.*")
+      add("-H:IncludeResourceBundles=org.pkl.core.errorMessages")
+      add("--macro:truffle")
+      add("-H:Class=org.pkl.cli.Main")
+      add("-H:Name=${outputFile.get().asFile.name}")
+      // the actual limit (currently) used by native-image is this number + 1400 (idea is to compensate for Truffle's own nodes)
+      add("-H:MaxRuntimeCompileMethods=1800")
+      add("-H:+EnforceMaxRuntimeCompileMethods")
+      add("--enable-url-protocols=http,https")
+      add("-H:+ReportExceptionStackTraces")
+      // disable automatic support for JVM CLI options (puts our main class in full control of argument parsing)
+      add("-H:-ParseRuntimeOptions")
+      // quick build mode: 40% faster compilation, 20% smaller (but presumably also slower) executable
+      if (!buildInfo.isReleaseBuild) {
+        add("-Ob")
+      }
+      // native-image rejects non-existing class path entries -> filter
+      add("--class-path")
+      val pathInput = sourceSets.main.get().output + configurations.runtimeClasspath.get()
+        .filter { it.exists() && !exclusions.any { exclude -> it.name.contains(exclude) } }
+      add(pathInput.asPath)
+      // make sure dev machine stays responsive (15% slowdown on my laptop)
+      val processors = Runtime.getRuntime().availableProcessors() /
+        if (buildInfo.os.isMacOsX && !buildInfo.isCiBuild) 4 else 1
+      add("-J-XX:ActiveProcessorCount=${processors}")
+      addAll(extraArgs)
+    }
   })
 }
 
@@ -273,7 +316,7 @@ val windowsExecutableAmd64: TaskProvider<Exec> by tasks.registering(Exec::class)
   configureExecutable(
     buildInfo.graalVmAmd64,
     layout.buildDirectory.file("executable/pkl-windows-amd64"),
-    listOf("-Dfile.encoding=UTF-8")
+    listOf("-Dfile.encoding=UTF-8", "-march=compatibility")
   )
 }
 
@@ -285,12 +328,15 @@ tasks.assembleNative {
         dependsOn(macExecutableAarch64)
       }
     }
+
     buildInfo.os.isWindows -> {
       dependsOn(windowsExecutableAmd64)
     }
+
     buildInfo.os.isLinux && buildInfo.arch == "aarch64" -> {
       dependsOn(linuxExecutableAarch64)
     }
+
     buildInfo.os.isLinux && buildInfo.arch == "amd64" -> {
       dependsOn(linuxExecutableAmd64)
       if (buildInfo.hasMuslToolchain) {
@@ -325,11 +371,13 @@ publishing {
 
       pom {
         url.set("https://github.com/apple/pkl/tree/main/pkl-cli")
-        description.set("""
+        description.set(
+          """
           Pkl CLI executable for Java.
           Can be executed directly on *nix (if the `java` command is found on the PATH) and with `java -jar` otherwise.
           Requires Java 17 or higher.
-        """.trimIndent())
+        """.trimIndent()
+        )
       }
     }
     create<MavenPublication>("macExecutableAmd64") {

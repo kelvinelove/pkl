@@ -178,6 +178,7 @@ Pkl {pkl-version} (Linux, native)
 
 NOTE: We currently do not support the aarch64 architecture for Alpine Linux.
 
+[[windows-executable]]
 === Windows Executable
 
 [source,PowerShell]
@@ -187,6 +188,8 @@ Invoke-WebRequest '{uri-pkl-windows-download}' -OutFile pkl.exe
 .\pkl --version
 ----
 
+This should print something similar to:
+
 [source]
 [subs="+attributes"]
 ----
@@ -195,6 +198,7 @@ Pkl {pkl-version} (Windows 10.0, native)
 
 NOTE: We currently do not support the aarch64 architecture for Windows.
 
+[[java-executable]]
 === Java Executable
 
 [source,shell]
@@ -827,3 +831,48 @@ These certificates can be overridden via either of the two options:
 Both these options will *replace* the default CA certificates bundled with Pkl. +
 The CLI option takes precedence over the certificates in `~/.pkl/cacerts/`. +
 Certificates need to be X.509 certificates in PEM format.
+
+[[http-proxy]]
+== HTTP Proxying
+
+When making HTTP(s) requests, Pkl can possibly make use of an HTTP proxy.
+
+There are two values that determine proxy settings; the proxy address and list of noproxy rules.
+When determining proxy settings, Pkl will look at the following locations, in order of precedence (lowest to highest):
+
+1. OS settings (on macOS, Windows, and GNOME environments)
+2. <<settings-file,Settings file>>
+3. xref:language-reference:index.adoc#projects[PklProject file]
+4. `--http-proxy` and `--http-no-proxy` CLI flags
+
+[NOTE]
+====
+The proxy and noproxy values are individually set.
+For example, using the `--http-no-proxy` flag but not the `--http-proxy` flag will cause Pkl to look at the PklProject file, then the settings file, then system settings for the proxy address.
+
+One exception to this rule is that setting a proxy address will cause Pkl to ignore any noproxy values set at the OS level.
+====
+
+Pkl only supports HTTP proxies, so neither HTTPS nor SOCKS proxies are supported.
+Pkl does not support authentication with a proxy.
+
+When specifying a proxy address, it must have scheme `http`, and may not contain anything other than a host and port.
+
+=== Proxy exclusions
+
+Pkl can be configured to bypass the proxy for specific requests via a proxy exclusion rule (i.e. the `--http-no-proxy` flag).
+It may be provided either as a hostname, an IP address, or an IP range via https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing#CIDR_notation[CIDR notation].
+When determining whether a proxy should be excluded, hostnames do not get resolved to their IP address.
+For example, a request to `localhost` will not match `--http-no-proxy=127.0.0.1`.
+
+For individual hosts (not CIDRs), ports can be specified.
+When no port is specified for a given host, connections to all ports bypass the proxy.
+
+A hostname will match all of its subdomains.
+For example, `example.com` will match `foo.example.com`, and `bar.foo.example.com`, but not `fooexample.com`.
+
+The value `*` is a special wildcard that matches all hosts.
+
+A port can optionally be specified. If omitted, it matches all ports.
+
+NOTE: Pkl follows the rules described in https://about.gitlab.com/blog/2021/01/27/we-need-to-talk-no-proxy/#standardizing-no_proxy[Standardizing `no_proxy`], except it does not look at environment variables.

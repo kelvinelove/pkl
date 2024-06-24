@@ -1013,7 +1013,8 @@ abstract class AbstractServerTest {
     moduleReaders: List<ModuleReaderSpec> = listOf(),
     modulePaths: List<Path> = listOf(),
     project: Project? = null,
-    cacheDir: Path? = null
+    cacheDir: Path? = null,
+    http: Http? = null,
   ): Long {
     val message =
       CreateEvaluatorRequest(
@@ -1029,7 +1030,8 @@ abstract class AbstractServerTest {
         rootDir = null,
         cacheDir = cacheDir,
         outputFormat = null,
-        project = project
+        project = project,
+        http = http
       )
 
     send(message)

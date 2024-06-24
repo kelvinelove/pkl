@@ -121,6 +121,11 @@ outputFormat: String?
 /// The project dependency settings.
 project: Project?
 
+/// Configuration of outgoing HTTP(s) requests.
+///
+/// Added in Pkl 0.26.0.
+http: Http?
+
 class ClientResourceReader {
   /// The URI scheme this reader is responsible for reading.
   scheme: String
@@ -189,7 +194,62 @@ class Checksums {
   /// The sha-256 checksum of this dependency's metadata.
   sha256: String
 }
+
+class Http {
+  /// PEM format certificates to trust when making HTTP requests.
+  ///
+  /// If [null], Pkl will trust its own built-in certificates.
+  caCertificates: Binary?
+
+  /// Configuration of the HTTP proxy to use.
+  ///
+  /// If [null], uses the operating system's proxy configuration.
+  proxy: Proxy?
+}
+
+/// Settings that control how Pkl talks to HTTP proxies.
+class Proxy {
+  /// The proxy to use for HTTP(S) connections.
+  ///
+  /// At the moment, only HTTP proxies are supported.
+  ///
+  /// Example:
+  /// ```
+  /// address = "http://my.proxy.example.com:5080"
+  /// ```
+  address: Uri(startsWith("http://"))?
+
+  /// Hosts to which all connections should bypass a proxy.
+  ///
+  /// Values can be either hostnames, or IP addresses.
+  /// IP addresses can optionally be provided using [CIDR notation](https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing#CIDR_notation).
+  ///
+  /// The only wildcard is `"*"`, which disables all proxying.
+  ///
+  /// A hostname matches all subdomains.
+  /// For example, `example.com` matches `foo.example.com`, but not `fooexample.com`.
+  /// A hostname that is prefixed with a dot matches the hostname itself,
+  /// so `.example.com` matches `example.com`.
+  ///
+  /// Optionally, a port can be specified.
+  /// If a port is omitted, all ports are matched.
+  ///
+  /// Example:
+  ///
+  /// ```
+  /// noProxy {
+  ///   "127.0.0.1"
+  ///   "169.254.0.0/16"
+  ///   "example.com"
+  ///   "localhost:5050"
+  /// }
+  /// ```
+  noProxy: Listing<String>(isDistinct)
+}
+
+typealias Binary = Any // <1>
 ----
+<1> link:{uri-messagepack-bin}[bin format] (not expressable in Pkl)
 
 Example:
 [source,json5]

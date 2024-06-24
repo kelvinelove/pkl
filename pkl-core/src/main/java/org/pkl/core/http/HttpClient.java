@@ -21,7 +21,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.nio.file.Path;
+import java.util.List;
 import javax.net.ssl.SSLContext;
+import org.pkl.core.util.Nullable;
 
 /**
  * An HTTP client.
@@ -36,6 +38,7 @@ import javax.net.ssl.SSLContext;
 public interface HttpClient extends AutoCloseable {
 
   /** A builder of {@linkplain HttpClient HTTP clients}. */
+  @SuppressWarnings("unused")
   interface Builder {
     /**
      * Sets the {@code User-Agent} header.
@@ -64,49 +67,22 @@ public interface HttpClient extends AutoCloseable {
      *
      * <p>The given file must contain <a href="https://en.wikipedia.org/wiki/X.509">X.509</a>
      * certificates in PEM format.
+     *
+     * <p>If no CA certificates are added via this method nor {@link #addCertificates(byte[])}, the
+     * built-in CA certificates of the Pkl native executable or JVM are used.
      */
-    Builder addCertificates(Path file);
+    Builder addCertificates(Path path);
 
     /**
-     * Adds a CA certificate file to the client's trust store.
+     * Adds CA certificate bytes to the client's trust store.
      *
-     * <p>The given file must contain <a href="https://en.wikipedia.org/wiki/X.509">X.509</a>
-     * certificates in PEM format.
+     * <p>The given cert must be an <a href="https://en.wikipedia.org/wiki/X.509">X.509</a>
+     * certificate in PEM format.
      *
-     * <p>This method is intended to be used for adding certificate files located on the class path.
-     * To add certificate files located on the file system, use {@link #addCertificates(Path)}.
-     *
-     * @throws HttpClientInitException if the given URI has a scheme other than {@code jar:} or
-     *     {@code file:}
+     * <p>If no CA certificates are added via this method nor {@link #addCertificates(Path)}, the
+     * built-in CA certificates of the Pkl native executable or JVM are used.
      */
-    Builder addCertificates(URI file);
-
-    /**
-     * Adds the CA certificate files in {@code ~/.pkl/cacerts/} to the client's trust store.
-     *
-     * <p>Each file must contain <a href="https://en.wikipedia.org/wiki/X.509">X.509</a>
-     * certificates in PEM format. If {@code ~/.pkl/cacerts/} does not exist or is empty, Pkl's
-     * {@link #addBuiltInCertificates() built-in certificates} are added instead.
-     *
-     * <p>This method implements the default behavior of Pkl CLIs.
-     *
-     * <p>NOTE: This method requires the optional {@code pkl-certs} JAR to be present on the class
-     * path.
-     *
-     * @throws HttpClientInitException if an I/O error occurs while scanning {@code ~/.pkl/cacerts/}
-     *     or the {@code pkl-certs} JAR is not found on the class path
-     */
-    Builder addDefaultCliCertificates();
-
-    /**
-     * Adds Pkl's built-in CA certificates to the client's trust store.
-     *
-     * <p>NOTE: This method requires the optional {@code pkl-certs} JAR to be present on the class
-     * path.
-     *
-     * @throws HttpClientInitException if the {@code pkl-certs} JAR is not found on the class path
-     */
-    Builder addBuiltInCertificates();
+    Builder addCertificates(byte[] certificateBytes);
 
     /**
      * Sets a test server's listening port.
@@ -115,6 +91,32 @@ public interface HttpClient extends AutoCloseable {
      * internal test option.
      */
     Builder setTestPort(int port);
+
+    /**
+     * Sets the proxy selector to use when establishing connections.
+     *
+     * <p>Defaults to: {@link java.net.ProxySelector#getDefault()}.
+     */
+    Builder setProxySelector(java.net.ProxySelector proxySelector);
+
+    /**
+     * Configures HTTP connections to connect to the provided proxy address.
+     *
+     * <p>The provided {@code proxyAddress} must have scheme http, not contain userInfo, and not
+     * have a path segment.
+     *
+     * <p>If {@code proxyAddress} is {@code null}, uses the proxy address provided by {@link
+     * java.net.ProxySelector#getDefault()}.
+     *
+     * <p>NOTE: Due to a <a href="https://bugs.openjdk.org/browse/JDK-8256409">limitation in the
+     * JDK</a>, this does not configure the proxy server used for certificate revocation checking.
+     * To configure the certificate revocation checker, the result of {@link
+     * java.net.ProxySelector#getDefault} needs to be changed either by setting system properties,
+     * or via {@link java.net.ProxySelector#setDefault}.
+     *
+     * @throws IllegalArgumentException if `proxyAddress` is invalid.
+     */
+    Builder setProxy(@Nullable URI proxyAddress, List<String> noProxy);
 
     /**
      * Creates a new {@code HttpClient} from the current state of this builder.
