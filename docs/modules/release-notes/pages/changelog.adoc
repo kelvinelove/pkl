@@ -6,6 +6,43 @@ include::ROOT:partial$component-attributes.adoc[]
 
 xref:0.27.adoc[Release notes]
 
+[[release-0.26.3]]
+== 0.26.3 (2024-08-06)
+
+=== Fixes
+
+* Fixes an issue where CLI argument `--property foo=""` is effectively parsed as `--property foo="true"`. This is now parsed as an empty string (https://github.com/apple/pkl/pull/596[#596]).
+* Fixes a regression where amending a globbed import or globbed read results in a PklBugException (https://github.com/apple/pkl/pull/607[#607]).
+* Fixes an issue around using `file()` notation when using the pkl-gradle plugin on Windows (https://github.com/apple/pkl/pull/611[#611]).
+
+[[release-0.26.2]]
+== 0.26.2 (2024-07-18)
+
+=== Fixes
+
+* Fixes a possible race condition where multiple concurrent Pkl evaluations results in a thrown exception when downloading packages (https://github.com/apple/pkl/pull/584[#584]).
+
+[[release-0.26.1]]
+== 0.26.1 (2024-06-28)
+
+=== Fixes
+
+* Fixes a regression where native executables fail to run on some environments that don't support newer CPU features (https://github.com/apple/pkl/pull/551[#551]).
+* Fixes a `PklBugException` when passing `.` as a project directory to `pkl project resolve` and `pkl project package` (https://github.com/apple/pkl/pull/544[#544]).
+
+=== Changes
+
+* Disable revocation checking of TLS certificates (https://github.com/apple/pkl/pull/553[#553]).
++
+As part of HTTP improvements in 0.26, we unwittingly fixed a bug where Pkl does not actually perform cert revocation checks when making HTTPS requests.
+This fix, unfortunately, caused a regression in some cases.
+For example, this happens when connecting to a server that bears a public trust certificate, while in an environment with no internet access.
+This is because the HTTP client needs to check the revocation status of all certificates in the chain.
++
+Revocation checks are a nuanced topic with some benefits, and also with its own problem areas.
+For this reason, revocation checking is disabled for Pkl's native CLIs.
+Users of Pkl's Java APIs will respect the revocation settings set in the JVM.
+
 [[release-0.26.0]]
 == 0.26.0 (2024-06-17)
 
