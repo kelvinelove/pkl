@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,6 +33,7 @@ import org.pkl.core.module.ModuleKeyFactories;
 import org.pkl.core.module.ModulePathResolver;
 import org.pkl.core.project.Project;
 import org.pkl.core.resource.ResourceReaders;
+import org.pkl.core.util.Readers;
 import org.pkl.executor.spi.v1.ExecutorSpi;
 import org.pkl.executor.spi.v1.ExecutorSpiException;
 import org.pkl.executor.spi.v1.ExecutorSpiOptions;
@@ -125,7 +126,8 @@ public final class ExecutorSpiImpl implements ExecutorSpi {
     } catch (PklException e) {
       throw new ExecutorSpiException(e.getMessage(), e.getCause());
     } finally {
-      ModuleKeyFactories.closeQuietly(builder.getModuleKeyFactories());
+      Readers.closeQuietly(builder.getModuleKeyFactories());
+      Readers.closeQuietly(builder.getResourceReaders());
     }
   }
 

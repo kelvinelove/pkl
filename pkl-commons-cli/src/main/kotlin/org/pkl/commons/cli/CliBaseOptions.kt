@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,6 +20,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 import java.util.regex.Pattern
+import org.pkl.core.evaluatorSettings.PklEvaluatorSettings.ExternalReader
 import org.pkl.core.module.ProjectDependenciesManager
 import org.pkl.core.util.IoUtils
 
@@ -134,6 +135,12 @@ data class CliBaseOptions(
 
   /** Hostnames, IP addresses, or CIDR blocks to not proxy. */
   val httpNoProxy: List<String>? = null,
+
+  /** External module reader process specs */
+  val externalModuleReaders: Map<String, ExternalReader> = mapOf(),
+
+  /** External resource reader process specs */
+  val externalResourceReaders: Map<String, ExternalReader> = mapOf(),
 ) {
 
   companion object {

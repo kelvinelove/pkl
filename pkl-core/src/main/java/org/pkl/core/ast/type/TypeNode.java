@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -2153,7 +2153,7 @@ public abstract class TypeNode extends PklNode {
 
     @Override
     public boolean isEquivalentTo(TypeNode other) {
-      return other instanceof UIntTypeAliasTypeNode;
+      return other instanceof UIntTypeAliasTypeNode aliasTypeNode && mask == aliasTypeNode.mask;
     }
 
     @Override

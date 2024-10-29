@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +21,7 @@ import org.pkl.commons.cli.CliException
 import org.pkl.commons.createParentDirectories
 import org.pkl.commons.writeString
 import org.pkl.core.ModuleSource
-import org.pkl.core.module.ModuleKeyFactories
+import org.pkl.core.util.Readers
 
 /** API for the Java code generator CLI. */
 class CliJavaCodeGenerator(private val options: CliJavaCodeGeneratorOptions) :
@@ -49,7 +49,8 @@ class CliJavaCodeGenerator(private val options: CliJavaCodeGeneratorOptions) :
         }
       }
     } finally {
-      ModuleKeyFactories.closeQuietly(builder.moduleKeyFactories)
+      Readers.closeQuietly(builder.moduleKeyFactories)
+      Readers.closeQuietly(builder.resourceReaders)
     }
   }
 }

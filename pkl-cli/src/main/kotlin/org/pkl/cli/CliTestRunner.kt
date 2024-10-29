@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,10 +19,10 @@ import java.io.Writer
 import org.pkl.commons.cli.*
 import org.pkl.core.EvaluatorBuilder
 import org.pkl.core.ModuleSource.uri
-import org.pkl.core.module.ModuleKeyFactories
 import org.pkl.core.stdlib.test.report.JUnitReport
 import org.pkl.core.stdlib.test.report.SimpleReport
 import org.pkl.core.util.ErrorMessages
+import org.pkl.core.util.Readers
 
 class CliTestRunner
 @JvmOverloads
@@ -38,7 +38,8 @@ constructor(
     try {
       evalTest(builder)
     } finally {
-      ModuleKeyFactories.closeQuietly(builder.moduleKeyFactories)
+      Readers.closeQuietly(builder.moduleKeyFactories)
+      Readers.closeQuietly(builder.resourceReaders)
     }
   }
 
@@ -59,14 +60,19 @@ constructor(
     val evaluator = builder.build()
     evaluator.use {
       var failed = false
+      var isExampleWrittenFailure = true
       val moduleNames = mutableSetOf<String>()
-      for (moduleUri in sources) {
+      for ((idx, moduleUri) in sources.withIndex()) {
         try {
           val results = evaluator.evaluateTest(uri(moduleUri), testOptions.overwrite)
           if (!failed) {
             failed = results.failed()
+            isExampleWrittenFailure = results.isExampleWrittenFailure.and(isExampleWrittenFailure)
           }
           SimpleReport().report(results, consoleWriter)
+          if (sources.size > 1 && idx != sources.size - 1) {
+            consoleWriter.append('\n')
+          }
           consoleWriter.flush()
           val junitDir = testOptions.junitDir
           if (junitDir != null) {
@@ -97,7 +103,8 @@ constructor(
         }
       }
       if (failed) {
-        throw CliTestException(ErrorMessages.create("testsFailed"))
+        val exitCode = if (isExampleWrittenFailure) 10 else 1
+        throw CliTestException(ErrorMessages.create("testsFailed"), exitCode)
       }
     }
   }
