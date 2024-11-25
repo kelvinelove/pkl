@@ -33,7 +33,6 @@ import org.pkl.core.module.ModuleKeyFactories;
 import org.pkl.core.module.ModulePathResolver;
 import org.pkl.core.project.Project;
 import org.pkl.core.resource.ResourceReaders;
-import org.pkl.core.util.Readers;
 import org.pkl.executor.spi.v1.ExecutorSpi;
 import org.pkl.executor.spi.v1.ExecutorSpiException;
 import org.pkl.executor.spi.v1.ExecutorSpiOptions;
@@ -116,18 +115,27 @@ public final class ExecutorSpiImpl implements ExecutorSpi {
             .setTimeout(options.getTimeout())
             .setOutputFormat(options.getOutputFormat())
             .setModuleCacheDir(options.getModuleCacheDir());
-    if (options.getProjectDir() != null) {
-      var project = Project.loadFromPath(options.getProjectDir().resolve(PKL_PROJECT_FILENAME));
-      builder.setProjectDependencies(project.getDependencies());
-    }
 
-    try (var evaluator = builder.build()) {
-      return evaluator.evaluateOutputText(ModuleSource.path(modulePath));
+    try {
+      if (options.getProjectDir() != null) {
+        var project =
+            Project.loadFromPath(
+                options.getProjectDir().resolve(PKL_PROJECT_FILENAME),
+                securityManager,
+                null,
+                transformer,
+                options.getEnvironmentVariables());
+        builder.setProjectDependencies(project.getDependencies());
+      }
+
+      try (var evaluator = builder.build()) {
+        return evaluator.evaluateOutputText(ModuleSource.path(modulePath));
+      }
     } catch (PklException e) {
       throw new ExecutorSpiException(e.getMessage(), e.getCause());
     } finally {
-      Readers.closeQuietly(builder.getModuleKeyFactories());
-      Readers.closeQuietly(builder.getResourceReaders());
+      Closeables.closeQuietly(builder.getModuleKeyFactories());
+      Closeables.closeQuietly(builder.getResourceReaders());
     }
   }
 

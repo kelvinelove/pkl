@@ -20,16 +20,20 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import org.pkl.core.messaging.Message.*;
+import org.pkl.core.module.ExternalModuleResolver;
 import org.pkl.core.module.PathElement;
+import org.pkl.core.resource.ExternalResourceResolver;
 import org.pkl.core.util.Nullable;
 
-public class Messages {
+public final class Messages {
+  private Messages() {}
 
   public record ModuleReaderSpec(
-      String scheme, boolean hasHierarchicalUris, boolean isLocal, boolean isGlobbable) {}
+      String scheme, boolean hasHierarchicalUris, boolean isLocal, boolean isGlobbable)
+      implements ExternalModuleResolver.Spec {}
 
-  public record ResourceReaderSpec(
-      String scheme, boolean hasHierarchicalUris, boolean isGlobbable) {}
+  public record ResourceReaderSpec(String scheme, boolean hasHierarchicalUris, boolean isGlobbable)
+      implements ExternalResourceResolver.Spec {}
 
   public record ListResourcesRequest(long requestId, long evaluatorId, URI uri)
       implements Server.Request {
@@ -77,12 +81,6 @@ public class Messages {
   public record ReadResourceResponse(
       long requestId, long evaluatorId, byte @Nullable [] contents, @Nullable String error)
       implements Client.Response {
-
-    // workaround for kotlin bridging issue where `byte @Nullable [] contents` isn't detected as
-    // nullable
-    //    public ReadResourceResponse(long requestId, long evaluatorId, @Nullable String error) {
-    //      this(requestId, evaluatorId, null, error);
-    //    }
 
     public Type type() {
       return Type.READ_RESOURCE_RESPONSE;

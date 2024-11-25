@@ -20,8 +20,8 @@ import org.pkl.commons.cli.CliCommand
 import org.pkl.commons.cli.CliException
 import org.pkl.commons.createParentDirectories
 import org.pkl.commons.writeString
+import org.pkl.core.Closeables
 import org.pkl.core.ModuleSource
-import org.pkl.core.util.Readers
 
 /** API for the Kotlin code generator CLI. */
 class CliKotlinCodeGenerator(private val options: CliKotlinCodeGeneratorOptions) :
@@ -34,7 +34,7 @@ class CliKotlinCodeGenerator(private val options: CliKotlinCodeGeneratorOptions)
       builder.build().use { evaluator ->
         for (moduleUri in options.base.normalizedSourceModules) {
           val schema = evaluator.evaluateSchema(ModuleSource.uri(moduleUri))
-          val codeGenerator = KotlinCodeGenerator(schema, options.toKotlinCodegenOptions())
+          val codeGenerator = KotlinCodeGenerator(schema, options.toKotlinCodeGeneratorOptions())
           try {
             for ((fileName, fileContents) in codeGenerator.output) {
               val outputFile = options.outputDir.resolve(fileName)
@@ -50,8 +50,8 @@ class CliKotlinCodeGenerator(private val options: CliKotlinCodeGeneratorOptions)
         }
       }
     } finally {
-      Readers.closeQuietly(builder.moduleKeyFactories)
-      Readers.closeQuietly(builder.resourceReaders)
+      Closeables.closeQuietly(builder.moduleKeyFactories)
+      Closeables.closeQuietly(builder.resourceReaders)
     }
   }
 }

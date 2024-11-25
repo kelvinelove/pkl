@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 import javax.annotation.concurrent.GuardedBy;
+import org.pkl.core.Closeables;
 import org.pkl.core.externalreader.ExternalReaderProcess;
 import org.pkl.core.externalreader.ExternalReaderProcessException;
 import org.pkl.core.util.ErrorMessages;
@@ -78,7 +79,7 @@ public final class ModuleKeyFactories {
   }
 
   /**
-   * Returns a factory for external reader module keys
+   * Returns a factory for external reader module keys.
    *
    * <p>NOTE: {@code process} needs to be {@link ExternalReaderProcess#close closed} to avoid
    * resource leaks.
@@ -87,6 +88,12 @@ public final class ModuleKeyFactories {
     return new ExternalProcess(scheme, process, 0);
   }
 
+  /**
+   * Returns a factory for external reader module keys.
+   *
+   * <p>NOTE: {@code process} needs to be {@link ExternalReaderProcess#close closed} to avoid
+   * resource leaks.
+   */
   public static ModuleKeyFactory externalProcess(
       String scheme, ExternalReaderProcess process, long evaluatorId) {
     return new ExternalProcess(scheme, process, evaluatorId);
@@ -95,7 +102,7 @@ public final class ModuleKeyFactories {
   /**
    * Closes the given factories, ignoring any exceptions.
    *
-   * @deprecated Replaced by {@link org.pkl.core.util.Readers#closeQuietly}.
+   * @deprecated Replaced by {@link Closeables#closeQuietly}.
    */
   @Deprecated(since = "0.27.0", forRemoval = true)
   public static void closeQuietly(Iterable<ModuleKeyFactory> factories) {
@@ -260,7 +267,7 @@ public final class ModuleKeyFactories {
     @GuardedBy("this")
     private ExternalModuleResolver resolver;
 
-    public ExternalProcess(String scheme, ExternalReaderProcess process, long evaluatorId) {
+    ExternalProcess(String scheme, ExternalReaderProcess process, long evaluatorId) {
       this.scheme = scheme;
       this.process = process;
       this.evaluatorId = evaluatorId;
@@ -272,12 +279,11 @@ public final class ModuleKeyFactories {
         return resolver;
       }
 
-      resolver = new ExternalModuleResolver(process.getTransport(), evaluatorId);
+      resolver = process.getModuleResolver(evaluatorId);
       return resolver;
     }
 
-    public Optional<ModuleKey> create(URI uri)
-        throws URISyntaxException, ExternalReaderProcessException, IOException {
+    public Optional<ModuleKey> create(URI uri) throws ExternalReaderProcessException, IOException {
       if (!scheme.equalsIgnoreCase(uri.getScheme())) return Optional.empty();
 
       var spec = process.getModuleReaderSpec(scheme);

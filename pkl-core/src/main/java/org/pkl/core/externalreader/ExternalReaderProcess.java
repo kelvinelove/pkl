@@ -16,38 +16,64 @@
 package org.pkl.core.externalreader;
 
 import java.io.IOException;
-import org.pkl.core.messaging.MessageTransport;
-import org.pkl.core.messaging.Messages.ModuleReaderSpec;
-import org.pkl.core.messaging.Messages.ResourceReaderSpec;
+import org.pkl.core.evaluatorSettings.PklEvaluatorSettings.ExternalReader;
+import org.pkl.core.module.ExternalModuleResolver;
+import org.pkl.core.resource.ExternalResourceResolver;
 import org.pkl.core.util.Nullable;
 
-/** An interface for interacting with external module/resource processes. */
+/** An external process that reads Pkl modules and resources. */
 public interface ExternalReaderProcess extends AutoCloseable {
-
   /**
-   * Obtain the process's underlying {@link MessageTransport} for sending reader-specific message
-   *
-   * <p>May allocate resources upon first call, including spawning a child process. Must not be
-   * called after {@link ExternalReaderProcess#close} has been called.
+   * Creates a new {@link ExternalReaderProcess} from the given spec. No resources are allocated at
+   * this time.
    */
-  MessageTransport getTransport() throws ExternalReaderProcessException;
-
-  /** Retrieve the spec, if available, of the process's module reader with the given scheme. */
-  @Nullable
-  ModuleReaderSpec getModuleReaderSpec(String scheme) throws IOException;
-
-  /** Retrieve the spec, if available, of the process's resource reader with the given scheme. */
-  @Nullable
-  ResourceReaderSpec getResourceReaderSpec(String scheme) throws IOException;
+  static ExternalReaderProcess of(ExternalReader spec) {
+    return new ExternalReaderProcessImpl(spec);
+  }
 
   /**
-   * Close the external process, cleaning up any resources.
+   * Returns a resolver for modules provided via this reader.
    *
-   * <p>The {@link MessageTransport} is sent the {@link ExternalReaderMessages.CloseExternalProcess}
-   * message to request a graceful stop. A bespoke (empty) message type is used here instead of an
-   * OS mechanism like signals to avoid forcing external reader implementers needing to handle many
-   * OS-specific mechanisms. Implementations may then forcibly clean up resources after a timeout.
-   * Must be safe to call multiple times.
+   * <p>Upon first call, this method may allocate resources, including spawning a child process.
+   *
+   * @throws IllegalStateException if this process has already been closed
+   */
+  ExternalModuleResolver getModuleResolver(long evaluatorId) throws ExternalReaderProcessException;
+
+  /**
+   * Returns a resolver for resources provided via this reader.
+   *
+   * <p>Upon first call, this method may allocate resources, including spawning a child process.
+   *
+   * @throws IllegalStateException if this process has already been closed
+   */
+  ExternalResourceResolver getResourceResolver(long evaluatorId)
+      throws ExternalReaderProcessException;
+
+  /**
+   * Returns the spec, if available, of this process's module reader with the given scheme.
+   *
+   * @throws IllegalStateException if this process has already been {@linkplain #close closed}
+   * @throws IOException if an I/O error occurs
+   */
+  ExternalModuleResolver.@Nullable Spec getModuleReaderSpec(String scheme) throws IOException;
+
+  /**
+   * Returns the spec, if available, of this process's resource reader with the given scheme.
+   *
+   * @throws IllegalStateException if this process has already been {@linkplain #close closed}
+   * @throws IOException if an I/O error occurs
+   */
+  ExternalResourceResolver.@Nullable Spec getResourceReaderSpec(String scheme) throws IOException;
+
+  /**
+   * Closes this process, releasing any associated resources.
+   *
+   * <p>This method can be safely called multiple times. Subsequent calls have no effect.
+   *
+   * @implNote Implementers should request a graceful termination by sending a {@link
+   *     ExternalReaderMessages.CloseExternalProcess CloseExternalProcess} message to the process
+   *     before terminating it forcibly.
    */
   @Override
   void close();

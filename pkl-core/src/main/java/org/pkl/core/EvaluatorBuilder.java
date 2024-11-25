@@ -22,7 +22,6 @@ import java.util.regex.Pattern;
 import org.pkl.core.SecurityManagers.StandardBuilder;
 import org.pkl.core.evaluatorSettings.PklEvaluatorSettings.ExternalReader;
 import org.pkl.core.externalreader.ExternalReaderProcess;
-import org.pkl.core.externalreader.ExternalReaderProcessImpl;
 import org.pkl.core.http.HttpClient;
 import org.pkl.core.module.ModuleKeyFactories;
 import org.pkl.core.module.ModuleKeyFactory;
@@ -61,6 +60,8 @@ public final class EvaluatorBuilder {
   private @Nullable Path moduleCacheDir = IoUtils.getDefaultModuleCacheDir();
 
   private @Nullable String outputFormat;
+
+  private boolean color = false;
 
   private @Nullable StackFrameTransformer stackFrameTransformer;
 
@@ -143,6 +144,17 @@ public final class EvaluatorBuilder {
    */
   public static EvaluatorBuilder unconfigured() {
     return new EvaluatorBuilder();
+  }
+
+  /** Sets the option to render errors in ANSI color. */
+  public EvaluatorBuilder setColor(boolean color) {
+    this.color = color;
+    return this;
+  }
+
+  /** Returns the current setting of the option to render errors in ANSI color. */
+  public boolean getColor() {
+    return color;
   }
 
   /** Sets the given stack frame transformer, replacing any previously set transformer. */
@@ -476,20 +488,23 @@ public final class EvaluatorBuilder {
     if (settings.rootDir() != null) {
       setRootDir(settings.rootDir());
     }
+    if (settings.color() != null) {
+      setColor(settings.color().hasColor());
+    }
     if (Boolean.TRUE.equals(settings.noCache())) {
       setModuleCacheDir(null);
     } else if (settings.moduleCacheDir() != null) {
       setModuleCacheDir(settings.moduleCacheDir());
     }
 
-    // this isn't ideal as project and non-project ExternalProcessImpl instances can be dupes
+    // this isn't ideal as project and non-project ExternalReaderProcess instances can be dupes
     var procs = new HashMap<ExternalReader, ExternalReaderProcess>();
     if (settings.externalModuleReaders() != null) {
       for (var entry : settings.externalModuleReaders().entrySet()) {
         addModuleKeyFactory(
             ModuleKeyFactories.externalProcess(
                 entry.getKey(),
-                procs.computeIfAbsent(entry.getValue(), ExternalReaderProcessImpl::new)));
+                procs.computeIfAbsent(entry.getValue(), ExternalReaderProcess::of)));
       }
     }
     if (settings.externalResourceReaders() != null) {
@@ -497,7 +512,7 @@ public final class EvaluatorBuilder {
         addResourceReader(
             ResourceReaders.externalProcess(
                 entry.getKey(),
-                procs.computeIfAbsent(entry.getValue(), ExternalReaderProcessImpl::new)));
+                procs.computeIfAbsent(entry.getValue(), ExternalReaderProcess::of)));
       }
     }
     return this;
@@ -514,6 +529,7 @@ public final class EvaluatorBuilder {
 
     return new EvaluatorImpl(
         stackFrameTransformer,
+        color,
         securityManager,
         httpClient,
         new LoggerImpl(logger, stackFrameTransformer),

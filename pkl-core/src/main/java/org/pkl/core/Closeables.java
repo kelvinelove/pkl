@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.pkl.core.util;
+package org.pkl.core;
 
-public class Readers {
+public final class Closeables {
+  private Closeables() {}
+
   /** Closes the given readers, ignoring any exceptions. */
   public static void closeQuietly(Iterable<? extends AutoCloseable> readers) {
     for (var reader : readers) {

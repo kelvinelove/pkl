@@ -34,6 +34,8 @@ import org.pkl.core.ast.member.ObjectMember;
 import org.pkl.core.module.ModuleKeys;
 import org.pkl.core.stdlib.PklConverter;
 import org.pkl.core.stdlib.base.PcfRenderer;
+import org.pkl.core.util.AnsiStringBuilder;
+import org.pkl.core.util.AnsiTheme;
 import org.pkl.core.util.EconomicMaps;
 import org.pkl.core.util.MutableBoolean;
 import org.pkl.core.util.MutableReference;
@@ -41,15 +43,20 @@ import org.pkl.core.util.MutableReference;
 /** Runs test results examples and facts. */
 public final class TestRunner {
   private static final PklConverter converter = new PklConverter(VmMapping.empty());
-  private final boolean overwrite;
-  private final StackFrameTransformer stackFrameTransformer;
   private final BufferedLogger logger;
+  private final StackFrameTransformer stackFrameTransformer;
+  private final boolean overwrite;
+  private final boolean useColor;
 
   public TestRunner(
-      BufferedLogger logger, StackFrameTransformer stackFrameTransformer, boolean overwrite) {
+      BufferedLogger logger,
+      StackFrameTransformer stackFrameTransformer,
+      boolean overwrite,
+      boolean useColor) {
     this.logger = logger;
     this.stackFrameTransformer = stackFrameTransformer;
     this.overwrite = overwrite;
+    this.useColor = useColor;
   }
 
   public TestResults run(VmTyped testModule) {
@@ -59,7 +66,8 @@ public final class TestRunner {
     try {
       checkAmendsPklTest(testModule);
     } catch (VmException v) {
-      var error = new TestResults.Error(v.getMessage(), v.toPklException(stackFrameTransformer));
+      var error =
+          new TestResults.Error(v.getMessage(), v.toPklException(stackFrameTransformer, useColor));
       return resultsBuilder.setError(error).build();
     }
 
@@ -108,7 +116,7 @@ public final class TestRunner {
                 } catch (VmException err) {
                   var error =
                       new TestResults.Error(
-                          err.getMessage(), err.toPklException(stackFrameTransformer));
+                          err.getMessage(), err.toPklException(stackFrameTransformer, useColor));
                   resultBuilder.addError(error);
                 }
                 return true;
@@ -208,7 +216,7 @@ public final class TestRunner {
                   errored.set(true);
                   testResultBuilder.addError(
                       new TestResults.Error(
-                          err.getMessage(), err.toPklException(stackFrameTransformer)));
+                          err.getMessage(), err.toPklException(stackFrameTransformer, useColor)));
                   return true;
                 }
                 var expectedValue = VmUtils.readMember(expectedGroup, exampleIndex);
@@ -305,7 +313,7 @@ public final class TestRunner {
                 } catch (VmException err) {
                   testResultBuilder.addError(
                       new TestResults.Error(
-                          err.getMessage(), err.toPklException(stackFrameTransformer)));
+                          err.getMessage(), err.toPklException(stackFrameTransformer, useColor)));
                   allSucceeded.set(false);
                   success.set(false);
                   return true;
@@ -387,27 +395,32 @@ public final class TestRunner {
         moduleInfo.getModuleKey().getUri(), VmContext.get(null).getFrameTransformer());
   }
 
-  private static Failure factFailure(SourceSection sourceSection, String location) {
-    String message = sourceSection.getCharacters().toString() + " " + renderLocation(location);
-    return new Failure("Fact Failure", message);
+  private Failure factFailure(SourceSection sourceSection, String location) {
+    var sb = new AnsiStringBuilder(useColor);
+    sb.append(AnsiTheme.TEST_FACT_SOURCE, sourceSection.getCharacters().toString()).append(" ");
+    appendLocation(sb, location);
+    return new Failure("Fact Failure", sb.toString());
   }
 
-  private static Failure exampleLengthMismatchFailure(
+  private Failure exampleLengthMismatchFailure(
       String location, String property, int expectedLength, int actualLength) {
-    String msg =
-        renderLocation(location)
-            + "\n"
-            + "Output mismatch: Expected \""
-            + property
-            + "\" to contain "
-            + expectedLength
-            + " examples, but found "
-            + actualLength;
+    var sb = new AnsiStringBuilder(useColor);
+    appendLocation(sb, location);
 
-    return new Failure("Output Mismatch (Length)", msg);
+    sb.append('\n')
+        .append(
+            AnsiTheme.TEST_FAILURE_MESSAGE,
+            () ->
+                sb.append("Output mismatch: Expected \"")
+                    .append(property)
+                    .append("\" to contain ")
+                    .append(expectedLength)
+                    .append(" examples, but found ")
+                    .append(actualLength));
+    return new Failure("Output Mismatch (Length)", sb.toString());
   }
 
-  private static Failure examplePropertyMismatchFailure(
+  private Failure examplePropertyMismatchFailure(
       String location, String property, boolean isMissingInExpected) {
 
     String existsIn;
@@ -421,52 +434,58 @@ public final class TestRunner {
       missingIn = "actual";
     }
 
-    String message =
-        renderLocation(location)
-            + "\n"
-            + "Output mismatch: \""
-            + property
-            + "\" exists in "
-            + existsIn
-            + " but not in "
-            + missingIn
-            + " output";
+    var sb = new AnsiStringBuilder(useColor);
+    appendLocation(sb, location);
 
-    return new Failure("Output Mismatch", message);
+    sb.append('\n')
+        .append(
+            AnsiTheme.TEST_FAILURE_MESSAGE,
+            () ->
+                sb.append("Output mismatch: \"")
+                    .append(property)
+                    .append("\" exists in ")
+                    .append(existsIn)
+                    .append(" but not in ")
+                    .append(missingIn)
+                    .append(" output"));
+    return new Failure("Output Mismatch", sb.toString());
   }
 
-  private static Failure exampleFailure(
+  private Failure exampleFailure(
       String location,
       String expectedLocation,
       String expectedValue,
       String actualLocation,
       String actualValue,
       int exampleNumber) {
-    String err =
-        "#"
-            + exampleNumber
-            + " "
-            + renderLocation(location)
-            + ":\n  "
-            + "Expected: "
-            + renderLocation(expectedLocation)
-            + "\n  "
-            + expectedValue.replaceAll("\n", "\n  ")
-            + "\n  "
-            + "Actual: "
-            + renderLocation(actualLocation)
-            + "\n  "
-            + actualValue.replaceAll("\n", "\n  ");
-
-    return new Failure("Example Failure", err);
+    var sb = new AnsiStringBuilder(useColor);
+    sb.append(AnsiTheme.TEST_NAME, "#" + exampleNumber + ": ");
+    sb.append(
+        AnsiTheme.TEST_FAILURE_MESSAGE,
+        () -> {
+          appendLocation(sb, location);
+          sb.append("\n  Expected: ");
+          appendLocation(sb, expectedLocation);
+          sb.append("\n  ");
+          sb.append(AnsiTheme.TEST_EXAMPLE_OUTPUT, expectedValue.replaceAll("\n", "\n  "));
+          sb.append("\n  Actual: ");
+          appendLocation(sb, actualLocation);
+          sb.append("\n  ");
+          sb.append(AnsiTheme.TEST_EXAMPLE_OUTPUT, actualValue.replaceAll("\n", "\n  "));
+        });
+    return new Failure("Example Failure", sb.toString());
   }
 
-  private static String renderLocation(String location) {
-    return "(" + location + ")";
+  private void appendLocation(AnsiStringBuilder stringBuilder, String location) {
+    stringBuilder.append(
+        AnsiTheme.STACK_FRAME,
+        () -> stringBuilder.append("(").appendUntrusted(location).append(")"));
   }
 
-  private static Failure writtenExampleOutputFailure(String testName, String location) {
-    var message = renderLocation(location) + "\n" + "Wrote expected output for test " + testName;
-    return new Failure("Example Output Written", message);
+  private Failure writtenExampleOutputFailure(String testName, String location) {
+    var sb = new AnsiStringBuilder(useColor);
+    appendLocation(sb, location);
+    sb.append(AnsiTheme.TEST_FAILURE_MESSAGE, "\nWrote expected output for test ").append(testName);
+    return new Failure("Example Output Written", sb.toString());
   }
 }

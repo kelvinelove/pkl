@@ -25,6 +25,8 @@ import java.util.concurrent.Future
 import kotlin.random.Random
 import org.pkl.core.externalreader.ExternalReaderMessages.*
 import org.pkl.core.messaging.MessageTransport
+import org.pkl.core.messaging.MessageTransportModuleResolver
+import org.pkl.core.messaging.MessageTransportResourceResolver
 import org.pkl.core.messaging.MessageTransports
 import org.pkl.core.messaging.Messages.*
 import org.pkl.core.messaging.ProtocolException
@@ -40,7 +42,11 @@ class TestExternalReaderProcess(private val transport: MessageTransport) : Exter
     transport.close()
   }
 
-  override fun getTransport(): MessageTransport = transport
+  override fun getModuleResolver(evaluatorId: Long): MessageTransportModuleResolver =
+    MessageTransportModuleResolver(transport, evaluatorId)
+
+  override fun getResourceResolver(evaluatorId: Long): MessageTransportResourceResolver =
+    MessageTransportResourceResolver(transport, evaluatorId)
 
   fun run() {
     try {

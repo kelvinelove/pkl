@@ -47,8 +47,12 @@ data class CliKotlinCodeGeneratorOptions(
    */
   val renames: Map<String, String> = emptyMap()
 ) {
-  fun toKotlinCodegenOptions(): KotlinCodegenOptions =
-    KotlinCodegenOptions(
+  @Suppress("DeprecatedCallableAddReplaceWith")
+  @Deprecated("deprecated without replacement")
+  fun toKotlinCodegenOptions(): KotlinCodeGeneratorOptions = toKotlinCodeGeneratorOptions()
+
+  internal fun toKotlinCodeGeneratorOptions(): KotlinCodeGeneratorOptions =
+    KotlinCodeGeneratorOptions(
       indent,
       generateKdoc,
       generateSpringBootConfig,

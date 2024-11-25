@@ -17,46 +17,50 @@ package org.pkl.core.externalreader;
 
 import java.io.IOException;
 import java.lang.ProcessBuilder.Redirect;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.concurrent.GuardedBy;
-import org.pkl.core.Duration;
 import org.pkl.core.evaluatorSettings.PklEvaluatorSettings.ExternalReader;
 import org.pkl.core.externalreader.ExternalReaderMessages.*;
 import org.pkl.core.messaging.MessageTransport;
+import org.pkl.core.messaging.MessageTransportModuleResolver;
+import org.pkl.core.messaging.MessageTransportResourceResolver;
 import org.pkl.core.messaging.MessageTransports;
-import org.pkl.core.messaging.Messages.ModuleReaderSpec;
-import org.pkl.core.messaging.Messages.ResourceReaderSpec;
 import org.pkl.core.messaging.ProtocolException;
+import org.pkl.core.module.ExternalModuleResolver;
+import org.pkl.core.resource.ExternalResourceResolver;
+import org.pkl.core.util.ErrorMessages;
 import org.pkl.core.util.LateInit;
 import org.pkl.core.util.Nullable;
 
-public class ExternalReaderProcessImpl implements ExternalReaderProcess {
+final class ExternalReaderProcessImpl implements ExternalReaderProcess {
 
   private static final Duration CLOSE_TIMEOUT = Duration.ofSeconds(3);
 
   private final ExternalReader spec;
   private final @Nullable String logPrefix;
-  private final Map<String, Future<@Nullable ModuleReaderSpec>> initializeModuleReaderResponses =
-      new ConcurrentHashMap<>();
-  private final Map<String, Future<@Nullable ResourceReaderSpec>>
+  private final Map<String, Future<ExternalModuleResolver.@Nullable Spec>>
+      initializeModuleReaderResponses = new ConcurrentHashMap<>();
+  private final Map<String, Future<ExternalResourceResolver.@Nullable Spec>>
       initializeResourceReaderResponses = new ConcurrentHashMap<>();
+  private final Random requestIdGenerator = new Random();
 
-  private @GuardedBy("this") boolean closed = false;
+  private final Object lock = new Object();
+  private @GuardedBy("lock") boolean closed = false;
 
   @LateInit
-  @GuardedBy("this")
+  @GuardedBy("lock")
   private Process process;
 
   @LateInit
-  @GuardedBy("this")
+  @GuardedBy("lock")
   private MessageTransport transport;
 
   private void log(String msg) {
@@ -65,7 +69,7 @@ public class ExternalReaderProcessImpl implements ExternalReaderProcess {
     }
   }
 
-  public ExternalReaderProcessImpl(ExternalReader spec) {
+  ExternalReaderProcessImpl(ExternalReader spec) {
     this.spec = spec;
     logPrefix =
         Objects.equals(System.getenv("PKL_DEBUG"), "1")
@@ -74,16 +78,30 @@ public class ExternalReaderProcessImpl implements ExternalReaderProcess {
   }
 
   @Override
-  public synchronized MessageTransport getTransport() throws ExternalReaderProcessException {
-    if (closed) {
-      throw new ExternalReaderProcessException("ExternalProcessImpl has already been closed");
-    }
-    if (process != null) {
-      if (!process.isAlive()) {
-        throw new ExternalReaderProcessException("ExternalProcessImpl process is no longer alive");
-      }
+  public ExternalModuleResolver getModuleResolver(long evaluatorId)
+      throws ExternalReaderProcessException {
+    return new MessageTransportModuleResolver(getTransport(), evaluatorId);
+  }
 
-      return transport;
+  @Override
+  public ExternalResourceResolver getResourceResolver(long evaluatorId)
+      throws ExternalReaderProcessException {
+    return new MessageTransportResourceResolver(getTransport(), evaluatorId);
+  }
+
+  private MessageTransport getTransport() throws ExternalReaderProcessException {
+    synchronized (lock) {
+      if (closed) {
+        throw new IllegalStateException("External reader process has already been closed.");
+      }
+      if (process != null) {
+        if (!process.isAlive()) {
+          throw new ExternalReaderProcessException(
+              ErrorMessages.create("externalReaderAlreadyTerminated"));
+        }
+
+        return transport;
+      }
     }
 
     // This relies on Java/OS behavior around PATH resolution, absolute/relative paths, etc.
@@ -104,7 +122,7 @@ public class ExternalReaderProcessImpl implements ExternalReaderProcess {
             new ExternalReaderMessagePackEncoder(process.getOutputStream()),
             this::log);
 
-    var rxThread = new Thread(this::runTransport, "ExternalProcessImpl rxThread for " + spec);
+    var rxThread = new Thread(this::runTransport, "ExternalReaderProcessImpl rxThread for " + spec);
     rxThread.setDaemon(true);
     rxThread.start();
 
@@ -131,52 +149,39 @@ public class ExternalReaderProcessImpl implements ExternalReaderProcess {
   }
 
   @Override
-  public synchronized void close() {
-    closed = true;
-    if (process == null || !process.isAlive()) {
-      return;
-    }
+  public void close() {
+    synchronized (lock) {
+      if (closed) return;
+      closed = true;
 
-    try {
-      if (transport != null) {
-        transport.send(new CloseExternalProcess());
-        transport.close();
+      try {
+        if (transport != null && process != null && process.isAlive()) {
+          transport.send(new CloseExternalProcess());
+          process.waitFor(CLOSE_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+        }
+      } catch (Exception ignored) {
+      } finally {
+        if (process != null) {
+          // no-op unless process is alive
+          process.destroyForcibly();
+        }
+        if (transport != null) {
+          transport.close();
+        }
       }
-
-      // forcefully stop the process after the timeout
-      // note that both transport.close() and process.destroy() are safe to call multiple times
-      new Timer()
-          .schedule(
-              new TimerTask() {
-                @Override
-                public void run() {
-                  if (process != null) {
-                    transport.close();
-                    process.destroyForcibly();
-                  }
-                }
-              },
-              CLOSE_TIMEOUT.inWholeMillis());
-
-      // block on process exit
-      process.onExit().get();
-    } catch (Exception e) {
-      transport.close();
-      process.destroyForcibly();
-    } finally {
-      process = null;
-      transport = null;
     }
   }
 
   @Override
-  public @Nullable ModuleReaderSpec getModuleReaderSpec(String uriScheme) throws IOException {
+  public ExternalModuleResolver.@Nullable Spec getModuleReaderSpec(String uriScheme)
+      throws IOException {
     return MessageTransports.resolveFuture(
         initializeModuleReaderResponses.computeIfAbsent(
             uriScheme,
             (scheme) -> {
-              var future = new CompletableFuture<@Nullable ModuleReaderSpec>();
-              var request = new InitializeModuleReaderRequest(new Random().nextLong(), scheme);
+              var future = new CompletableFuture<ExternalModuleResolver.@Nullable Spec>();
+              var request =
+                  new InitializeModuleReaderRequest(requestIdGenerator.nextLong(), scheme);
               try {
                 getTransport()
                     .send(
@@ -197,13 +202,15 @@ public class ExternalReaderProcessImpl implements ExternalReaderProcess {
   }
 
   @Override
-  public @Nullable ResourceReaderSpec getResourceReaderSpec(String uriScheme) throws IOException {
+  public ExternalResourceResolver.@Nullable Spec getResourceReaderSpec(String uriScheme)
+      throws IOException {
     return MessageTransports.resolveFuture(
         initializeResourceReaderResponses.computeIfAbsent(
             uriScheme,
             (scheme) -> {
-              var future = new CompletableFuture<@Nullable ResourceReaderSpec>();
-              var request = new InitializeResourceReaderRequest(new Random().nextLong(), scheme);
+              var future = new CompletableFuture<ExternalResourceResolver.@Nullable Spec>();
+              var request =
+                  new InitializeResourceReaderRequest(requestIdGenerator.nextLong(), scheme);
               try {
                 getTransport()
                     .send(

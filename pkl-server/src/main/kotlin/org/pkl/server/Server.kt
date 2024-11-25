@@ -25,9 +25,9 @@ import kotlin.random.Random
 import org.pkl.core.*
 import org.pkl.core.evaluatorSettings.PklEvaluatorSettings.ExternalReader
 import org.pkl.core.externalreader.ExternalReaderProcess
-import org.pkl.core.externalreader.ExternalReaderProcessImpl
 import org.pkl.core.http.HttpClient
 import org.pkl.core.messaging.MessageTransport
+import org.pkl.core.messaging.MessageTransportResourceResolver
 import org.pkl.core.messaging.MessageTransports
 import org.pkl.core.messaging.ProtocolException
 import org.pkl.core.module.ModuleKeyFactories
@@ -35,7 +35,6 @@ import org.pkl.core.module.ModuleKeyFactory
 import org.pkl.core.module.ModulePathResolver
 import org.pkl.core.packages.PackageUri
 import org.pkl.core.project.DeclaredDependencies
-import org.pkl.core.resource.ExternalResourceResolver
 import org.pkl.core.resource.ResourceReader
 import org.pkl.core.resource.ResourceReaders
 import org.pkl.core.util.IoUtils
@@ -249,7 +248,7 @@ class Server(private val transport: MessageTransport) : AutoCloseable {
       add(
         ResourceReaders.externalResolver(
           readerSpec,
-          ExternalResourceResolver(transport, evaluatorId)
+          MessageTransportResourceResolver(transport, evaluatorId)
         )
       )
     }
@@ -286,5 +285,5 @@ class Server(private val transport: MessageTransport) : AutoCloseable {
   private fun getExternalProcess(evaluatorId: Long, spec: ExternalReader): ExternalReaderProcess =
     externalReaderProcesses
       .computeIfAbsent(evaluatorId) { ConcurrentHashMap() }
-      .computeIfAbsent(spec) { ExternalReaderProcessImpl(it) }
+      .computeIfAbsent(spec) { ExternalReaderProcess.of(it) }
 }

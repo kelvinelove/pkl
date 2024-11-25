@@ -25,7 +25,6 @@ import org.pkl.commons.cli.CliException
 import org.pkl.commons.toPath
 import org.pkl.core.*
 import org.pkl.core.packages.*
-import org.pkl.core.util.Readers
 
 /**
  * Entry point for the high-level Pkldoc API.
@@ -50,7 +49,7 @@ class CliDocGenerator(private val options: CliDocGeneratorOptions) : CliCommand(
       sourceCodeUrlScheme =
         if (options.isTestMode)
           "https://github.com/apple/pkl/blob/0.24.0/stdlib%{path}#L%{line}-L%{endLine}"
-        else Release.current().sourceCode().sourceCodeUrlScheme,
+        else Release.current().sourceCode().sourceCodeUrlScheme(),
       documentation =
         if (options.isTestMode) URI("https://pages.github.com/apple/pkl/stdlib/pkl/0.24.0/")
         else
@@ -250,8 +249,8 @@ class CliDocGenerator(private val options: CliDocGeneratorOptions) : CliCommand(
         importedModules[pklBaseUri] = evaluator.evaluateSchema(ModuleSource.uri(pklBaseUri))
       }
     } finally {
-      Readers.closeQuietly(builder.moduleKeyFactories)
-      Readers.closeQuietly(builder.resourceReaders)
+      Closeables.closeQuietly(builder.moduleKeyFactories)
+      Closeables.closeQuietly(builder.resourceReaders)
     }
 
     val versions = mutableMapOf<String, Version>()

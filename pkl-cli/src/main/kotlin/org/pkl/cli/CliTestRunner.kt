@@ -17,12 +17,13 @@ package org.pkl.cli
 
 import java.io.Writer
 import org.pkl.commons.cli.*
+import org.pkl.core.Closeables
 import org.pkl.core.EvaluatorBuilder
 import org.pkl.core.ModuleSource.uri
+import org.pkl.core.TestResults
 import org.pkl.core.stdlib.test.report.JUnitReport
 import org.pkl.core.stdlib.test.report.SimpleReport
 import org.pkl.core.util.ErrorMessages
-import org.pkl.core.util.Readers
 
 class CliTestRunner
 @JvmOverloads
@@ -38,8 +39,8 @@ constructor(
     try {
       evalTest(builder)
     } finally {
-      Readers.closeQuietly(builder.moduleKeyFactories)
-      Readers.closeQuietly(builder.resourceReaders)
+      Closeables.closeQuietly(builder.moduleKeyFactories)
+      Closeables.closeQuietly(builder.resourceReaders)
     }
   }
 
@@ -62,14 +63,17 @@ constructor(
       var failed = false
       var isExampleWrittenFailure = true
       val moduleNames = mutableSetOf<String>()
+      val reporter = SimpleReport(useColor)
+      val allTestResults = mutableListOf<TestResults>()
       for ((idx, moduleUri) in sources.withIndex()) {
         try {
           val results = evaluator.evaluateTest(uri(moduleUri), testOptions.overwrite)
+          allTestResults.add(results)
           if (!failed) {
             failed = results.failed()
             isExampleWrittenFailure = results.isExampleWrittenFailure.and(isExampleWrittenFailure)
           }
-          SimpleReport().report(results, consoleWriter)
+          reporter.report(results, consoleWriter)
           if (sources.size > 1 && idx != sources.size - 1) {
             consoleWriter.append('\n')
           }
@@ -102,6 +106,9 @@ constructor(
           failed = true
         }
       }
+      consoleWriter.append('\n')
+      reporter.summarize(allTestResults, consoleWriter)
+      consoleWriter.flush()
       if (failed) {
         val exitCode = if (isExampleWrittenFailure) 10 else 1
         throw CliTestException(ErrorMessages.create("testsFailed"), exitCode)
