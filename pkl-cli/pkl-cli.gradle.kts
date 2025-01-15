@@ -1,5 +1,5 @@
 /*
- * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
+ * Copyright © 2024-2025 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -276,7 +276,12 @@ val linuxExecutableAarch64: TaskProvider<Exec> by
     dependsOn(":installGraalVmAarch64")
     configureExecutable(
       buildInfo.graalVmAarch64,
-      layout.buildDirectory.file("executable/pkl-linux-aarch64")
+      layout.buildDirectory.file("executable/pkl-linux-aarch64"),
+      listOf(
+        // Ensure compatibility for kernels with page size set to 4k, 16k and 64k
+        // (e.g. Raspberry Pi 5, Asahi Linux)
+        "-H:PageSize=65536"
+      )
     )
   }
 
@@ -358,7 +363,7 @@ publishing {
         description.set(
           """
           Pkl CLI executable for Java.
-          Can be executed directly on *nix (if the `java` command is found on the PATH) and with `java -jar` otherwise.
+          Can be executed directly, or with `java -jar <path/to/jpkl>`.
           Requires Java 17 or higher.
         """
             .trimIndent()

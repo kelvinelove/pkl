@@ -15,18 +15,16 @@
  */
 package org.pkl.core.ast.member;
 
-import com.oracle.truffle.api.CompilerDirectives;
 import com.oracle.truffle.api.frame.FrameDescriptor;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.source.SourceSection;
 import org.pkl.core.ast.PklRootNode;
 import org.pkl.core.ast.type.TypeNode;
-import org.pkl.core.ast.type.VmTypeMismatchException;
 import org.pkl.core.runtime.VmLanguage;
 import org.pkl.core.util.Nullable;
 
 /** Performs a typecast on a Mapping entry value, or a Listing element. */
-public class ListingOrMappingTypeCastNode extends PklRootNode {
+public final class ListingOrMappingTypeCastNode extends PklRootNode {
 
   @Child private TypeNode typeNode;
   private final String qualifiedName;
@@ -53,12 +51,7 @@ public class ListingOrMappingTypeCastNode extends PklRootNode {
   }
 
   @Override
-  public Object execute(VirtualFrame frame) {
-    try {
-      return typeNode.execute(frame, frame.getArguments()[2]);
-    } catch (VmTypeMismatchException e) {
-      CompilerDirectives.transferToInterpreter();
-      throw e.toVmException();
-    }
+  protected Object executeImpl(VirtualFrame frame) {
+    return typeNode.execute(frame, frame.getArguments()[2]);
   }
 }

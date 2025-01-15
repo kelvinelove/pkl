@@ -2,12 +2,12 @@
 :uri-gng: https://gng.dsun.org
 :uri-jenv: https://www.jenv.be
 :uri-intellij: https://www.jetbrains.com/idea/download/
-:uri-jdk: https://adoptopenjdk.net/releases.html?variant=openjdk17
-:uri-native-prerequisites: https://www.graalvm.org/latest/getting-started/windows/#prerequisites-for-native-image-on-windows
+:uri-native-prerequisites-linux: https://www.graalvm.org/latest/getting-started/linux/#prerequisites-for-native-image-on-linux
+:uri-native-prerequisites-windows: https://www.graalvm.org/latest/getting-started/windows/#prerequisites-for-native-image-on-windows
 
 == Setup
 
-. (mandatory) Install {uri-jdk}[OpenJDK 17] or higher
+. (mandatory) Install a JDK (any version between 17 - 21).
 . (recommended) Install {uri-intellij}[IntelliJ IDEA] +
 To import the project into IntelliJ, go to File->Open and select the project's root directory.
 If the project is opened but not imported, look for a popup in the lower right corner
@@ -25,12 +25,20 @@ Enable _jenv_ plugins for better handling by `gradle`:
 jenv enable-plugin gradle
 jenv enable-plugin export
 ----
+. (optional) If you've named the original apple/pkl git repository something other than `origin`, set env var `PKL_ORIGINAL_REMOTE_NAME` to that name in your `.bashrc`, `.zshrc`, `config.fish` or however you manage your local environment.
++
+This will allow spotless to pick the correct starting branch when formatting source code files.
+Otherwise, you might see that _every_ file has its copyright year updated.
+
+=== Additional Linux Setup
+. (optional) To build the native executable (`./gradlew buildNative`),
+install {uri-native-prerequisites-linux}[Prerequisites For Native Image on Linux].
 
 === Additional Windows Setup
 . (optional) Go to `System->For developers` and enable `Developer Mode`.
 Otherwise, some tests may fail due to insufficient file system privileges.
 . (optional) To build the native executable (`./gradlew buildNative`), 
-install {uri-native-prerequisites}[Prerequisites For Native Image on Windows].
+install {uri-native-prerequisites-windows}[Prerequisites For Native Image on Windows].
 
 == Common Build Commands
 

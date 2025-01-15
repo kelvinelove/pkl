@@ -1,5 +1,5 @@
 /*
- * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
+ * Copyright © 2024-2025 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ import org.pkl.core.runtime.VmDuration;
 import org.pkl.core.runtime.VmDynamic;
 import org.pkl.core.runtime.VmExceptionBuilder;
 import org.pkl.core.runtime.VmIntSeq;
+import org.pkl.core.runtime.VmLanguage;
 import org.pkl.core.runtime.VmList;
 import org.pkl.core.runtime.VmListing;
 import org.pkl.core.runtime.VmMap;
@@ -309,7 +310,7 @@ public final class RendererNodes {
           isDirective || key instanceof Long || key instanceof Boolean || key instanceof String;
       if (!isValidKey) {
         throw new VmExceptionBuilder()
-            .evalError("cannotRenderNonScalarMapKey")
+            .evalError("cannotRenderProtobufMapKey")
             .withProgramValue("Key", key)
             .build();
       }
@@ -573,7 +574,8 @@ public final class RendererNodes {
         type =
             requiresWrapper()
                 ? null
-                : new ListingTypeNode(VmUtils.unavailableSourceSection(), valueType);
+                : new ListingTypeNode(
+                    VmUtils.unavailableSourceSection(), VmLanguage.get(null), valueType);
         return type;
       } else if (type instanceof MappingTypeNode mappingType) {
         var keyType = resolveType(mappingType.getKeyTypeNode());
@@ -581,13 +583,15 @@ public final class RendererNodes {
             || keyType instanceof StringTypeNode
             || keyType instanceof BooleanTypeNode)) {
           throw new VmExceptionBuilder()
-              .evalError("cannotRenderNonScalarMapKeyType")
+              .evalError("cannotRenderProtobufMapKeyType")
               .withSourceSection(type.getSourceSection())
               .build();
         }
         var valueType = resolveType(mappingType.getValueTypeNode());
         assert valueType != null : "Incomplete or malformed Mapping type";
-        mappingType = new MappingTypeNode(VmUtils.unavailableSourceSection(), keyType, valueType);
+        mappingType =
+            new MappingTypeNode(
+                VmUtils.unavailableSourceSection(), VmLanguage.get(null), keyType, valueType);
 
         type = requiresWrapper() ? null : mappingType;
         return type;
