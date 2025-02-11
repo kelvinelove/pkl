@@ -1,5 +1,5 @@
 /*
- * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
+ * Copyright © 2024-2025 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,18 @@ import org.pkl.core.http.HttpClient
 import org.pkl.core.project.Project
 import org.pkl.core.util.IoUtils
 
+// @TODO: this test fails on JDK 22+, because of an output mismatch
+private val excludedOnJvm22Plus = listOf(Regex(".*analyzeInvalidHttpModule.*"))
+
+private fun currentMajorJavaVersion(): Int =
+  System.getProperty("java.version").substringBefore('.').toInt()
+
+private fun exclusionsForThisJvm(): List<Regex> =
+  when {
+    currentMajorJavaVersion() >= 22 -> excludedOnJvm22Plus
+    else -> emptyList()
+  }
+
 abstract class AbstractLanguageSnippetTestsEngine : InputOutputTestEngine() {
   private val lineNumberRegex = Regex("(?m)^(( ║ )*)(\\d+) \\|")
   private val hiddenExtensionRegex = Regex(".*[.]([^.]*)[.]pkl")
@@ -61,6 +73,9 @@ abstract class AbstractLanguageSnippetTestsEngine : InputOutputTestEngine() {
     if (IoUtils.isWindows()) {
       addAll(windowsExcludedTests)
     }
+
+    // on experimental JVM versions, exclude tests which are known to be incompatible
+    addAll(exclusionsForThisJvm())
   }
 
   override val inputDir: Path = snippetsDir.resolve("input")
@@ -94,17 +109,17 @@ abstract class AbstractLanguageSnippetTestsEngine : InputOutputTestEngine() {
   protected fun String.stripFilePaths(): String =
     replace(IoUtils.toNormalizedPathString(snippetsDir), replacement)
 
-  protected fun String.stripLineNumbers() =
+  protected fun String.stripLineNumbers(): String =
     replace(lineNumberRegex) { result ->
       // replace line number with equivalent number of 'x' characters to keep formatting intact
       (result.groups[1]!!.value) + "x".repeat(result.groups[3]!!.value.length) + " |"
     }
 
-  protected fun String.stripWebsite() =
+  protected fun String.stripWebsite(): String =
     replace(Release.current().documentation().homepage(), "https://\$pklWebsite/")
 
   // can't think of a better solution right now
-  protected fun String.stripVersionCheckErrorMessage() =
+  protected fun String.stripVersionCheckErrorMessage(): String =
     replace("Pkl version is ${Release.current().version()}", "Pkl version is xxx")
 
   protected fun String.stripStdlibLocationSha(): String {
@@ -114,7 +129,7 @@ abstract class AbstractLanguageSnippetTestsEngine : InputOutputTestEngine() {
       else Release.current().commitId()
     return replace(
       "https://github.com/apple/pkl/blob/${commitIsh}/stdlib/",
-      "https://github.com/apple/pkl/blob/\$commitId/stdlib/"
+      "https://github.com/apple/pkl/blob/\$commitId/stdlib/",
     )
   }
 
@@ -135,7 +150,7 @@ class LanguageSnippetTestsEngine : AbstractLanguageSnippetTestsEngine() {
           "NAME2" to "value2",
           "/foo/bar" to "foobar",
           "foo bar" to "foo bar",
-          "file:///foo/bar" to "file:///foo/bar"
+          "file:///foo/bar" to "file:///foo/bar",
         )
       )
       .setExternalProperties(
@@ -169,7 +184,7 @@ class LanguageSnippetTestsEngine : AbstractLanguageSnippetTestsEngine() {
                     SecurityManagers.defaultManager,
                     null,
                     StackFrameTransformers.empty,
-                    mapOf()
+                    mapOf(),
                   )
                 securityManager = null
                 applyFromProject(project)
@@ -200,13 +215,13 @@ abstract class AbstractNativeLanguageSnippetTestsEngine : AbstractLanguageSnippe
       // on the other hand, don't exclude /native/
       Regex(".*/import1b\\.pkl"),
       // URIs get rendered slightly differently (percent-encoded vs raw)
-      Regex(".*日本語_error\\.pkl")
-    )
+      Regex(".*日本語_error\\.pkl"),
+    ) + exclusionsForThisJvm()
 
   /** Avoid running tests for native binaries when those native binaries have not been built. */
   override fun discover(
     discoveryRequest: EngineDiscoveryRequest,
-    uniqueId: UniqueId
+    uniqueId: UniqueId,
   ): TestDescriptor {
     if (!pklExecutablePath.exists()) {
       // return empty descriptor w/o children

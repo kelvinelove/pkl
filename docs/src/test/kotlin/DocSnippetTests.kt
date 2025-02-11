@@ -38,7 +38,7 @@ class DocSnippetTestsEngine : HierarchicalTestEngine<DocSnippetTestsEngine.Execu
   private val projectDir = rootProjectDir.resolve("docs")
   private val docsDir = projectDir.resolve("modules")
 
-  companion object {
+  private companion object {
     val headingRegex = Regex("""(?u)^\s*(=++)\s*(.+)""")
     val collapsibleBlockRegex = Regex("""(?u)^\s*\[%collapsible""")
     val codeBlockRegex = Regex("""(?u)^\s*\[source(?:%(tested|parsed)(%error)?)?(?:,\{?([a-zA-Z-_]+)}?)?""")
@@ -150,6 +150,7 @@ class DocSnippetTestsEngine : HierarchicalTestEngine<DocSnippetTestsEngine.Execu
     }
   }
 
+  @Suppress("DEPRECATION")
   private fun parseAsciidoc(docDescriptor: Descriptor.Path, selectors: List<UniqueIdSelector>) {
     var line = ""
     var prevLine = ""

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
+ * Copyright © 2024-2025 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-plugins { `kotlin-dsl` }
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+  `kotlin-dsl`
+  `jvm-toolchains`
+}
+
+// Keep this in sync with the constants in `BuildInfo.kt` (those are not addressable here).
+val toolchainVersion = 21
 
 dependencies {
   implementation(libs.downloadTaskPlugin)
@@ -27,8 +35,16 @@ dependencies {
 }
 
 java {
-  sourceCompatibility = JavaVersion.VERSION_17
-  targetCompatibility = JavaVersion.VERSION_17
+  sourceCompatibility = JavaVersion.toVersion(toolchainVersion)
+  targetCompatibility = JavaVersion.toVersion(toolchainVersion)
+
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(toolchainVersion)
+    vendor = JvmVendorSpec.ADOPTIUM
+  }
 }
 
-kotlin { target { compilations.configureEach { kotlinOptions { jvmTarget = "17" } } } }
+kotlin {
+  jvmToolchain(toolchainVersion)
+  compilerOptions { jvmTarget = JvmTarget.fromTarget(toolchainVersion.toString()) }
+}
