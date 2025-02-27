@@ -1,5 +1,5 @@
 /*
- * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
+ * Copyright © 2024-2025 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,18 @@ constructor(
    * Generates source URLs with fixed line numbers `#L123-L456` to avoid churn in expected output
    * files (e.g., when stdlib line numbers change).
    */
-  val isTestMode: Boolean = false
+  val isTestMode: Boolean = false,
+
+  /**
+   * Disables creation of symlinks, replacing them with regular files and directories.
+   *
+   * In particular, this affects creation of the "current" directory which contains documentation
+   * for the latest version of the package.
+   *
+   * `false` will make the current directory into a symlink to the actual version directory. `true`,
+   * however, will create a full copy instead.
+   */
+  val noSymlinks: Boolean = false,
 ) {
   /** [outputDir] after undergoing normalization. */
   val normalizedOutputDir: Path = base.normalizedWorkingDir.resolveSafely(outputDir)

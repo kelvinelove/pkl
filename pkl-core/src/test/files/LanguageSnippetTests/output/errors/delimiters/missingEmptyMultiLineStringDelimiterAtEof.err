@@ -1,5 +1,5 @@
 –– Pkl Error ––
-Mismatched input: `<EOF>`. Expected one of: MLEndQuote, MLInterpolation, MLUnicodeEscape, MLCharacterEscape, MLNewline, MLCharacters
+Missing `"""` delimiter.
 
 x | res1 = """
               ^

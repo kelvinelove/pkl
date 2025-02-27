@@ -5,6 +5,7 @@
 .gradle/
 build/
 generated/
+testgenerated/
 
 # IntelliJ
 .idea/
@@ -22,3 +23,5 @@ generated/
 # :pkl-core:makeIntelliJAntlrPluginHappy
 gen/
 PklLexer.tokens
+
+.kotlin/

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
+ * Copyright © 2024-2025 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,16 +20,13 @@ import java.io.PipedOutputStream
 import java.net.URI
 import java.nio.file.Path
 import java.time.Duration
-import java.util.regex.Pattern
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.msgpack.core.MessagePack
-import org.pkl.core.evaluatorSettings.PklEvaluatorSettings
-import org.pkl.core.evaluatorSettings.PklEvaluatorSettings.ExternalReader
 import org.pkl.core.messaging.Message
 import org.pkl.core.messaging.MessageDecoder
 import org.pkl.core.messaging.MessageEncoder
-import org.pkl.core.messaging.Messages.*
+import org.pkl.core.messaging.Messages
 import org.pkl.core.packages.Checksums
 
 class ServerMessagePackCodecTest {
@@ -52,28 +49,16 @@ class ServerMessagePackCodecTest {
 
   @Test
   fun `round-trip CreateEvaluatorRequest`() {
-    val resourceReader1 =
-      ResourceReaderSpec(
-        "resourceReader1",
-        true,
-        true,
-      )
-    val resourceReader2 =
-      ResourceReaderSpec(
-        "resourceReader2",
-        true,
-        false,
-      )
-    val moduleReader1 = ModuleReaderSpec("moduleReader1", true, true, true)
-    val moduleReader2 = ModuleReaderSpec("moduleReader2", true, false, false)
+    val resourceReader1 = Messages.ResourceReaderSpec("resourceReader1", true, true)
+    val resourceReader2 = Messages.ResourceReaderSpec("resourceReader2", true, false)
+    val moduleReader1 = Messages.ModuleReaderSpec("moduleReader1", true, true, true)
+    val moduleReader2 = Messages.ModuleReaderSpec("moduleReader2", true, false, false)
     val externalReader = ExternalReader("external-cmd", listOf("arg1", "arg2"))
     roundtrip(
       CreateEvaluatorRequest(
         requestId = 123,
-        allowedModules = listOf("pkl", "file", "https").map(Pattern::compile),
-        allowedResources =
-          listOf("pkl", "file", "https", "resourceReader1", "resourceReader2")
-            .map(Pattern::compile),
+        allowedModules = listOf("pkl", "file", "https"),
+        allowedResources = listOf("pkl", "file", "https", "resourceReader1", "resourceReader2"),
         clientResourceReaders = listOf(resourceReader1, resourceReader2),
         clientModuleReaders = listOf(moduleReader1, moduleReader2),
         modulePaths = listOf(Path.of("some/path.zip"), Path.of("other/path.zip")),
@@ -99,18 +84,18 @@ class ServerMessagePackCodecTest {
                           Project(
                             projectFileUri = URI("file:///bar"),
                             packageUri = URI("package://localhost:0/bar@1.1.0"),
-                            dependencies = emptyMap()
+                            dependencies = emptyMap(),
                           )
-                      )
+                      ),
                   ),
                 "baz" to
-                  RemoteDependency(URI("package://localhost:0/baz@1.1.0"), Checksums("abc123"))
-              )
+                  RemoteDependency(URI("package://localhost:0/baz@1.1.0"), Checksums("abc123")),
+              ),
           ),
         http =
           Http(
-            proxy = PklEvaluatorSettings.Proxy(URI("http://foo.com:1234"), listOf("bar", "baz")),
-            caCertificates = byteArrayOf(1, 2, 3, 4)
+            proxy = Proxy(URI("http://foo.com:1234"), listOf("bar", "baz")),
+            caCertificates = byteArrayOf(1, 2, 3, 4),
           ),
         externalModuleReaders = mapOf("external" to externalReader, "external2" to externalReader),
         externalResourceReaders = mapOf("external" to externalReader),
@@ -136,7 +121,7 @@ class ServerMessagePackCodecTest {
         evaluatorId = 456,
         moduleUri = URI("some/module.pkl"),
         moduleText = null,
-        expr = "some + expression"
+        expr = "some + expression",
       )
     )
   }
@@ -148,7 +133,7 @@ class ServerMessagePackCodecTest {
         requestId = 123,
         evaluatorId = 456,
         result = byteArrayOf(1, 2, 3, 4, 5),
-        error = null
+        error = null,
       )
     )
   }
@@ -160,7 +145,7 @@ class ServerMessagePackCodecTest {
         evaluatorId = 123,
         level = 0,
         message = "Hello, world!",
-        frameUri = "file:///some/module.pkl"
+        frameUri = "file:///some/module.pkl",
       )
     )
   }

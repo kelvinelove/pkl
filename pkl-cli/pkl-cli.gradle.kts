@@ -68,11 +68,7 @@ dependencies {
   implementation(libs.jlineTerminal)
   implementation(libs.jlineTerminalJansi)
   implementation(projects.pklServer)
-  implementation(libs.clikt) {
-    // force clikt to use our version of the kotlin stdlib
-    exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk8")
-    exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-common")
-  }
+  implementation(libs.clikt)
 
   testImplementation(projects.pklCommonsTest)
   testImplementation(libs.wiremock)
@@ -99,9 +95,6 @@ tasks.shadowJar {
 
   exclude("META-INF/maven/**")
   exclude("META-INF/upgrade/**")
-
-  // org.antlr.v4.runtime.misc.RuleDependencyProcessor
-  exclude("META-INF/services/javax.annotation.processing.Processor")
 
   exclude("module-info.*")
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
+ * Copyright © 2024-2025 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,20 +17,19 @@ package org.pkl.server
 
 import java.net.URI
 import java.util.Optional
+import org.pkl.core.externalreader.ExternalModuleResolver
+import org.pkl.core.externalreader.ModuleReaderSpec
 import org.pkl.core.messaging.*
-import org.pkl.core.messaging.MessageTransportModuleResolver
-import org.pkl.core.messaging.Messages.*
 import org.pkl.core.module.*
 
 internal class ClientModuleKeyFactory(
   private val readerSpecs: Collection<ModuleReaderSpec>,
   transport: MessageTransport,
-  evaluatorId: Long
+  evaluatorId: Long,
 ) : ModuleKeyFactory {
   private val schemes = readerSpecs.map { it.scheme }
 
-  private val resolver: MessageTransportModuleResolver =
-    MessageTransportModuleResolver(transport, evaluatorId)
+  private val resolver: ExternalModuleResolver = ExternalModuleResolver.of(transport, evaluatorId)
 
   override fun create(uri: URI): Optional<ModuleKey> =
     when (uri.scheme) {

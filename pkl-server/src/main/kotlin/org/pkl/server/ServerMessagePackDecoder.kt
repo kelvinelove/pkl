@@ -1,5 +1,5 @@
 /*
- * Copyright © 2024 Apple Inc. and the Pkl project authors. All rights reserved.
+ * Copyright © 2024-2025 Apple Inc. and the Pkl project authors. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,9 @@ import java.io.InputStream
 import java.net.URI
 import java.nio.file.Path
 import java.time.Duration
-import java.util.regex.Pattern
 import org.msgpack.core.MessagePack
 import org.msgpack.core.MessageUnpacker
 import org.msgpack.value.Value
-import org.pkl.core.evaluatorSettings.PklEvaluatorSettings
-import org.pkl.core.evaluatorSettings.PklEvaluatorSettings.ExternalReader
 import org.pkl.core.messaging.BaseMessagePackDecoder
 import org.pkl.core.messaging.Message
 import org.pkl.core.packages.Checksums
@@ -38,8 +35,8 @@ class ServerMessagePackDecoder(unpacker: MessageUnpacker) : BaseMessagePackDecod
       Message.Type.CREATE_EVALUATOR_REQUEST ->
         CreateEvaluatorRequest(
           get(map, "requestId").asIntegerValue().asLong(),
-          unpackStringListOrNull(map, "allowedModules", Pattern::compile),
-          unpackStringListOrNull(map, "allowedResources", Pattern::compile),
+          unpackStringListOrNull(map, "allowedModules"),
+          unpackStringListOrNull(map, "allowedResources"),
           unpackListOrNull(map, "clientModuleReaders") { unpackModuleReaderSpec(it)!! },
           unpackListOrNull(map, "clientResourceReaders") { unpackResourceReaderSpec(it)!! },
           unpackStringListOrNull(map, "modulePaths", Path::of),
@@ -52,13 +49,13 @@ class ServerMessagePackDecoder(unpacker: MessageUnpacker) : BaseMessagePackDecod
           map.unpackProject(),
           map.unpackHttp(),
           unpackStringMapOrNull(map, "externalModuleReaders", ::unpackExternalReader),
-          unpackStringMapOrNull(map, "externalResourceReaders", ::unpackExternalReader)
+          unpackStringMapOrNull(map, "externalResourceReaders", ::unpackExternalReader),
         )
       Message.Type.CREATE_EVALUATOR_RESPONSE ->
         CreateEvaluatorResponse(
           unpackLong(map, "requestId"),
           unpackLongOrNull(map, "evaluatorId"),
-          unpackStringOrNull(map, "error")
+          unpackStringOrNull(map, "error"),
         )
       Message.Type.CLOSE_EVALUATOR -> CloseEvaluator(unpackLong(map, "evaluatorId"))
       Message.Type.EVALUATE_REQUEST ->
@@ -67,21 +64,21 @@ class ServerMessagePackDecoder(unpacker: MessageUnpacker) : BaseMessagePackDecod
           unpackLong(map, "evaluatorId"),
           URI(unpackString(map, "moduleUri")),
           unpackStringOrNull(map, "moduleText"),
-          unpackStringOrNull(map, "expr")
+          unpackStringOrNull(map, "expr"),
         )
       Message.Type.EVALUATE_RESPONSE ->
         EvaluateResponse(
           unpackLong(map, "requestId"),
           unpackLong(map, "evaluatorId"),
           unpackByteArray(map, "result"),
-          unpackStringOrNull(map, "error")
+          unpackStringOrNull(map, "error"),
         )
       Message.Type.LOG_MESSAGE ->
         LogMessage(
           unpackLong(map, "evaluatorId"),
           unpackInt(map, "level"),
           unpackString(map, "message"),
-          unpackString(map, "frameUri")
+          unpackString(map, "frameUri"),
         )
       else -> super.decodeMessage(msgType, map)
     }
@@ -101,11 +98,11 @@ class ServerMessagePackDecoder(unpacker: MessageUnpacker) : BaseMessagePackDecod
     return Http(caCertificates, proxy)
   }
 
-  private fun Map<Value, Value>.unpackProxy(): PklEvaluatorSettings.Proxy? {
+  private fun Map<Value, Value>.unpackProxy(): Proxy? {
     val proxyMap = getNullable(this, "proxy")?.asMapValue()?.map() ?: return null
     val address = unpackString(proxyMap, "address")
     val noProxy = unpackStringListOrNull(proxyMap, "noProxy")
-    return PklEvaluatorSettings.Proxy.create(address, noProxy)
+    return Proxy(URI(address), noProxy)
   }
 
   private fun Map<Value, Value>.unpackDependencies(name: String): Map<String, Dependency> {

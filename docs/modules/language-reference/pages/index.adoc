@@ -2,13 +2,11 @@
 include::ROOT:partial$component-attributes.adoc[]
 :uri-common-mark: https://commonmark.org/
 :uri-newspeak: https://newspeaklanguage.org
-:uri-antlr4: https://www.antlr.org
 :uri-prototypical-inheritance: https://en.wikipedia.org/wiki/Prototype-based_programming
 :uri-double-precision: https://en.wikipedia.org/wiki/Double-precision_floating-point_format
 :uri-progressive-disclosure: https://en.wikipedia.org/wiki/Progressive_disclosure
 :uri-javadoc-Pattern: https://docs.oracle.com/javase/8/docs/api/java/util/regex/Pattern.html
-:uri-github-PklLexer: {uri-github-tree}/pkl-core/src/main/antlr/PklLexer.g4
-:uri-github-PklParser: {uri-github-tree}/pkl-core/src/main/antlr/PklParser.g4
+:uri-github-PklLexer: {uri-github-tree}/pkl-core/src/main/java/org/pkl/core/parser/Lexer.java
 :uri-pkl-core-ModuleSchema: {uri-pkl-core-main-sources}/ModuleSchema.java
 :uri-pkl-core-SecurityManager: {uri-pkl-core-main-sources}/SecurityManager.java
 :uri-pkl-core-ResourceReader: {uri-pkl-core-main-sources}/resource/ResourceReader.java
@@ -2036,6 +2034,9 @@ greeting2 = greetPigeon(parrot)  // <4>
 <3> Call instance method on `pigeon`.
 <4> Call module method (on `this`).
 
+Like other object-oriented languages, methods defined on extended classes and modules may be overridden.
+The parent type's method may be called via the <<super-keyword,`super` keyword>>.
+
 NOTE: Methods do not support named parameters or default parameter values.
 The xref:blog:ROOT:class-as-a-function.adoc[Class-as-a-function] pattern may be a suitable replacement.
 
@@ -3193,10 +3194,13 @@ This section discusses language features that are generally more relevant to tem
 <<for-generators,For Generators>> +
 <<spread-syntax,Spread Syntax>> +
 <<member-predicates,Member Predicates (`[[...]]`)>> +
+<<this-keyword,`this` Keyword>> +
+<<outer-keyword,`outer` Keyword>> +
+<<super-keyword,`super` Keyword>> +
+<<module-keyword,`module` Keyword>> +
 <<glob-patterns,Glob Patterns>> +
 <<doc-comments,Doc Comments>> +
 <<name-resolution,Name Resolution>> +
-<<grammar-definition,Grammar Definition>> +
 <<reserved-keywords,Reserved Keywords>> +
 <<blank-identifiers,Blank Identifiers>> +
 <<projects,Projects>> +
@@ -3539,9 +3543,7 @@ res6 = list.map((n) -> n * 3) // <6>
 [[sets]]
 === Sets
 
-A value of type link:{uri-stdlib-Set}[Set] is an ordered collection of unique _elements_.
-
-A set's elements are eagerly evaluated.
+A value of type link:{uri-stdlib-Set}[Set] is a collection of unique _elements_.
 
 Sets are constructed with the `Set()` methodfootnote:soft-keyword[]:
 
@@ -3556,6 +3558,20 @@ res4 = Set(1, "x", 5.min, List(1, 2, 3)) // <4>
 <2> result: set of length 3
 <3> result: same set of length 3
 <4> result: heterogeneous set that contains a list as its last element
+
+Sets retain the order of elements when constructed, which impacts how they are iterated over.
+However, this order is not considered when determining equality of two sets.
+
+[source%tested,{pkl}]
+----
+res1 = Set(4, 3, 2)
+res2 = res1.first // <1>
+res3 = res1.toListing() // <2>
+res4 = Set(2, 3, 4) == res1 // <3>
+----
+<1> result: `4`
+<2> result: `new Listing { 4; 3; 2 }`
+<3> result: `true`
 
 To compute the union of sets, use the `+` operator:
 
@@ -3584,7 +3600,7 @@ res4 = set.intersect(Set(3, 9, 2)) // <4>
 [[maps]]
 === Maps
 
-A value of type link:{uri-stdlib-Map}[Map] is an ordered collection of _values_ indexed by _key_.
+A value of type link:{uri-stdlib-Map}[Map] is a collection of _values_ indexed by _key_.
 
 A map's key-value pairs are called its _entries_.
 Keys and values are eagerly evaluated.
@@ -3618,6 +3634,20 @@ Any Pkl value can be used as a map key:
 ----
 Map(new Dynamic { name = "Pigeon" }, 10.gb)
 ----
+
+Maps retain the order of entries when constructed, which impacts how they are iterated over.
+However, this order is not considered when determining equality of two maps.
+
+[source%tested,{pkl}]
+----
+res1 = Map(2, "hello", 1, "world")
+res2 = res1.entries.first // <1>
+res3 = res1.toMapping() // <2>
+res4 = res1 == Map(1, "world", 2, "hello") // <3>
+----
+<1> result: `Pair(2, "hello")`
+<2> result: `new Mapping { [2] = "hello"; [1] = "world" }`
+<3> result: `true`
 
 To merge maps, use the `+` operator:
 
@@ -4803,6 +4833,161 @@ The predicate, enclosed in double brackets (`\[[...]]`), is matched against each
 Within the predicate, `this` refers to the member that the predicate is matched against.
 Matching members are amended (`{ ... }`) or overridden (`= <new-value>`).
 
+[[this-keyword]]
+=== `this` keyword
+
+Normally, the `this` keyword references the enclosing object's receiver.
+
+Example:
+[source,pkl]
+----
+bird {
+  eatsInsects = this is InsectavorousBird
+}
+----
+
+When used inside a <<type-constraints,type constraint>>, `this` refers to the value being tested.
+
+Example:
+[source,pkl]
+----
+port: UInt16(this > 1000)
+----
+
+When used inside a <<member-predicates,member predicate>>, `this` refers to the value being matched against.
+
+Example:
+[source,pkl]
+----
+animals {
+  [[this is Bird]] {
+    canFly = true
+  }
+}
+----
+
+[[receiver]]
+==== Receiver
+
+The receiver is the bottom-most object in the <<prototype-chain>>.
+That means that, within the context of an amending object, the reciever is the amending object.
+
+Example:
+[source,pkl]
+----
+hidden lawyerBird {
+  title = "\(this.name), Esq."
+}
+
+polly = (lawyerBird) {
+  name = "Polly" // <1>
+}
+----
+<1> Polly has title `"Polly, Esq."`.
+
+[[outer-keyword]]
+=== `outer` keyword
+
+The `outer` keyword references the <<receiver,receiver>> of the immediately outer lexical object.
+
+It can be useful to disambiguate a lookup that might otherwise resolve elsewhere.
+
+Example:
+[source%tested,pkl]
+----
+foo {
+  bar = "bar"
+  qux {
+    bar = outer.bar // <1>
+  }
+}
+----
+<1> References `bar` one level higher.
+
+Note that `outer` cannot be chained.
+In order to reference a value more than one level higher, a typical pattern is to declare a local property at that level.
+
+For example:
+
+[source%parsed,pkl]
+----
+foo {
+  local self = this
+  bar {
+    baz {
+      qux = self.qux
+    }
+  }
+}
+----
+
+[[super-keyword]]
+=== `super` keyword
+
+The `super` keyword references the parent object in the <<prototype-chain,prototype chain>>.
+
+When used within a class, it refers to the superclass's prototype.
+When used within an object, it refers to the parent object in the amends chain.
+
+Example:
+[source%tested,pkl]
+----
+bird = new { name = "Quail" }
+
+bird2 = (bird) { name = "Ms. \(super.name)" } // <1>
+
+abstract class Bird {
+  foods: Listing<String>
+
+  function canEat(food: String): Boolean = foods.contains(food)
+}
+
+class InsectavorousBird extends Bird {
+  function canEat(food: String) =
+    super.canEat(food) || food == "insect" // <2>
+}
+----
+<1> Result: `"Ms. Quail"`
+<2> Calls parent class method `canEat()`
+
+The `super` keyword must be followed by property/method access, or subscript.
+`super` by itself a syntax error; whereas `super.foo` and `super["foo"]` are valid expressions.
+
+[[module-keyword]]
+=== `module` keyword
+
+The `module` keyword can be used as either a value, or as a type.
+
+When used as a value, it refers to the <<receiver,receiver>> of the module itself.
+
+[source%tested,pkl]
+----
+name = "Quail"
+
+some {
+  deep {
+    object {
+      name = module.name // <1>
+    }
+  }
+}
+----
+<1> Resolves to `"Quail"`
+
+When used as a type, it is the module's class.
+
+[source%parsed,pkl]
+----
+module Bird
+
+friend: module // <1>
+----
+<1> Is class `Bird`
+
+The `module` type is a _self type_.
+If the module is extended by another module, the `module` type refers to the extending module when
+in the context of that module.
+
 [[glob-patterns]]
 === Glob Patterns
 
@@ -4889,8 +5074,8 @@ TIP: If incorporating escape characters into a glob pattern, use <<custom-string
 |===
 |Pattern |Description
 
-|`*.pc[lf]`
-|Anything suffixed by `.pkl`, or `.pcf`.
+|`*.pk[lg]`
+|Anything suffixed by `.pkl`, or `.pkg`.
 
 |`**.y{a,}ml`
 |Anything suffixed by either `yml` or `yaml`, crossing directory boundaries. 
@@ -5248,11 +5433,6 @@ For example, the prototype chain of value `42` contains, now listed from top to 
 
 A prototype chain never contains a non-object value, such as `42`.
 
-[[grammar-definition]]
-=== Grammar Definition
-
-Pkl's link:{uri-antlr4}[ANTLR 4] grammar is defined in link:{uri-github-PklLexer}[PklLexer.g4] and link:{uri-github-PklParser}[PklParser.g4].
-
 [[reserved-keywords]]
 === Reserved keywords
 
@@ -5269,7 +5449,7 @@ They cannot be used as a regular identifier, and currently do not have any meani
 
 To use these names in an identifier, <<quoted-identifiers, surround them with backticks>>.
 
-For a complete list of keywords, consult link:{uri-github-PklLexer}[PklLexer.g4].
+For a complete list of keywords, consult field `Lexer.KEYWORDS` in {uri-github-PklLexer}[Lexer.java].
 
 [[blank-identifiers]]
 === Blank Identifiers
